@@ -91,6 +91,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders FORCE ROW LEVEL SECURITY;      -- applies even to the table owner
 
+DROP POLICY IF EXISTS orders_owner_only ON orders;
 CREATE POLICY orders_owner_only ON orders
   USING (
     auth0_user_id = current_setting('app.current_user_id', true)
@@ -104,6 +105,7 @@ CREATE POLICY orders_owner_only ON orders
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items FORCE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS order_items_owner_only ON order_items;
 CREATE POLICY order_items_owner_only ON order_items
   USING (
     order_id IN (SELECT id FROM orders WHERE auth0_user_id = current_setting('app.current_user_id', true))
@@ -119,16 +121,20 @@ CREATE POLICY order_items_owner_only ON order_items
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products FORCE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS products_public_read ON products;
 CREATE POLICY products_public_read ON products
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS products_service_write ON products;
 CREATE POLICY products_service_write ON products
   FOR INSERT WITH CHECK (current_setting('app.is_service', true) = 'true');
 
+DROP POLICY IF EXISTS products_service_update ON products;
 CREATE POLICY products_service_update ON products
   FOR UPDATE USING (current_setting('app.is_service', true) = 'true')
   WITH CHECK (current_setting('app.is_service', true) = 'true');
 
+DROP POLICY IF EXISTS products_service_delete ON products;
 CREATE POLICY products_service_delete ON products
   FOR DELETE USING (current_setting('app.is_service', true) = 'true');
 
@@ -158,16 +164,20 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON product_variants TO app_user;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants FORCE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS product_variants_public_read ON product_variants;
 CREATE POLICY product_variants_public_read ON product_variants
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS product_variants_service_write ON product_variants;
 CREATE POLICY product_variants_service_write ON product_variants
   FOR INSERT WITH CHECK (current_setting('app.is_service', true) = 'true');
 
+DROP POLICY IF EXISTS product_variants_service_update ON product_variants;
 CREATE POLICY product_variants_service_update ON product_variants
   FOR UPDATE USING (current_setting('app.is_service', true) = 'true')
   WITH CHECK (current_setting('app.is_service', true) = 'true');
 
+DROP POLICY IF EXISTS product_variants_service_delete ON product_variants;
 CREATE POLICY product_variants_service_delete ON product_variants
   FOR DELETE USING (current_setting('app.is_service', true) = 'true');
 
@@ -191,6 +201,7 @@ GRANT SELECT, INSERT, UPDATE ON carts TO app_user;
 ALTER TABLE carts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE carts FORCE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS carts_owner_only ON carts;
 CREATE POLICY carts_owner_only ON carts
   USING (
     auth0_user_id = current_setting('app.current_user_id', true)
