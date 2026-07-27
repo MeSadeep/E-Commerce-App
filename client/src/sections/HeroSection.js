@@ -11,38 +11,11 @@ export default function HeroSection() {
         {/* Wave background — built as layered SVG gradients rather than a
             stock photo, so it's exactly reproducible and never depends on an
             external image source. */}
-        <svg
-          className="absolute inset-0 w-full h-full"
-          viewBox="0 0 1600 900"
-          preserveAspectRatio="xMidYMid slice"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient id="wave1" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#164E63" />
-              <stop offset="100%" stopColor="#0A0F1E" />
-            </linearGradient>
-            <linearGradient id="wave2" x1="0" y1="1" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0E7490" />
-              <stop offset="100%" stopColor="#22D3EE" />
-            </linearGradient>
-          </defs>
-          <rect width="1600" height="900" fill="#0A0F1E" />
-          <motion.path
-            d="M0,560 C300,460 500,660 800,510 C1100,360 1300,560 1600,460 L1600,900 L0,900 Z"
-            fill="url(#wave1)"
-            opacity="0.85"
-            animate={reduce ? {} : { x: [0, 20, 0] }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.path
-            d="M0,620 C350,520 550,720 850,570 C1150,420 1350,620 1600,520 L1600,900 L0,900 Z"
-            fill="url(#wave2)"
-            opacity="0.45"
-            animate={reduce ? {} : { x: [0, -30, 0] }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        </svg>
+        <img
+           src="https://res.cloudinary.com/s3j01zmg/image/upload/v1785002927/pexels-mahmoudramadan-31650385_hb1pxh.jpg"
+           alt="Hero background"
+           className="absolute inset-0 w-full h-full object-cover opacity-40"
+        />
 
         {/* Ambient drifting gradient overlay — slow, subtle, never distracting */}
         <motion.div
@@ -84,14 +57,14 @@ export default function HeroSection() {
             </div>
           </motion.div>
           <motion.div
-            className="mt-8"
+            className="mt-8 flex items-center gap-3 flex-wrap"
             initial={reduce ? false : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
             <Link
               to="/#shop"
-              className="inline-flex items-center gap-3 bg-white text-ink rounded-full pl-6 pr-2 py-2 font-body text-sm font-medium hover:bg-flash-500/10 transition-colors"
+              className="inline-flex items-center gap-3 bg-white text-ink rounded-full pl-6 pr-2 py-2 font-body text-sm font-medium hover:bg-accent-100 transition-colors"
             >
               Shop the collection
               <span className="w-8 h-8 rounded-full bg-flash-500 flex items-center justify-center">
@@ -99,6 +72,14 @@ export default function HeroSection() {
                   <path d="M3 11L11 3M11 3H4M11 3V10" stroke="#0A0F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
+            </Link>
+
+              {/* Second Button (Transparent / Semi-transparent Gray) */}
+            <Link
+               to="/#about"
+               className="inline-flex items-center gap-3 bg-white-300/10 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-gray-400/20 transition-colors backdrop-blur-sm"
+            >
+             Log in
             </Link>
           </motion.div>
         </div>

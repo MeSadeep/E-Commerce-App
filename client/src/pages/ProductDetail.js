@@ -39,7 +39,15 @@ export default function ProductDetail() {
     setSelectedVariant(null);
     setActiveImage(0);
     publicApi.get(`/api/products/${id}`).then((res) => setProduct(res.data)).catch(() => setError(true));
-    publicApi.get(`/api/products/${id}/variants`).then((res) => setVariants(res.data)).catch(() => setVariants([]));
+    publicApi
+      .get(`/api/products/${id}/variants`)
+      .then((res) => {
+        setVariants(res.data);
+        // Auto-select the first option so its photos show immediately,
+        // instead of requiring a click before any gallery appears.
+        if (res.data.length > 0) setSelectedVariant(res.data[0]);
+      })
+      .catch(() => setVariants([]));
   };
 
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -85,7 +93,7 @@ export default function ProductDetail() {
     <main className="max-w-5xl mx-auto px-4 md:px-8 py-16">
       <div className="grid md:grid-cols-2 gap-12 mb-12">
         <div>
-          <img src={mainImage} alt={product.name} className="rounded-2xl w-full aspect-square object-cover mb-3" />
+          <img src={mainImage} alt={product.name} className="rounded-2xl w-full aspect-square object-cover mb-3 border border-line" />
           {images.length > 1 && (
             <div className="flex gap-2">
               {images.map((src, i) => (
