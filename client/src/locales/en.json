@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "brand": "Aperture Goods",
+    "home": "Home",
+    "shop": "Shop",
+    "about": "About",
+    "faq": "FAQ's",
+    "contact": "Contact",
+    "cart": "Cart",
+    "login": "Log in",
+    "logout": "Log out"
+  },
+  "home": {
+    "title": "Shop",
+    "loading": "Loading products…",
+    "error": "Could not load products. Please try again shortly."
+  },
+  "cart": {
+    "title": "Your cart",
+    "empty": "Your cart is empty.",
+    "total": "Total",
+    "checkout": "Checkout with Stripe",
+    "redirecting": "Redirecting to Stripe…",
+    "remove": "Remove"
+  },
+  "footer": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "deleteAccount": "Delete my account"
+  }
+}

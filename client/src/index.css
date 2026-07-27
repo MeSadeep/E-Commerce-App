@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-paper text-ink font-body;
+}
+
+/* Aperture iris — the brand's signature mark. Six blades rotating around a
+   center point, echoing a camera aperture diaphragm. Used in the nav mark,
+   hero backdrop, and as a hover accent on product cards. */
+.iris-blade {
+  transform-origin: 50% 50%;
+}
+
+@keyframes iris-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.iris-spin {
+  animation: iris-rotate 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iris-spin { animation: none; }
+}
