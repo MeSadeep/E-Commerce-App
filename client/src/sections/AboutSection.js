@@ -15,18 +15,16 @@ export default function AboutSection() {
       <Reveal>
         <p className="text-accent-500 text-sm font-medium mb-3">— About us</p>
         <h2 className="font-display font-bold text-3xl md:text-4xl leading-tight tracking-tight mb-4 max-w-2xl">
-          We name things after the part that lets the light in.
+          Designed for Every Moment
         </h2>
         <p className="text-ink/60 max-w-2xl mb-4">
-          An aperture is the opening that controls exactly how much light reaches the
-          lens — too little and detail disappears into shadow, too much and it washes
-          out. That's the standard we hold every product to: precise, deliberate,
-          nothing left to chance.
+          An aperture is a modern fashion brand dedicated to creating timeless apparel for everyday living.
+          We combine premium fabrics, contemporary designs, and exceptional craftsmanship to deliver clothing 
+          that feels as good as it looks.
         </p>
         <p className="text-ink/60 max-w-2xl mb-12">
-          We're a small team who got tired of goods that looked good in photos and
-          fell apart in your hands. Everything in the catalog is tested for materials,
-          tolerances, and how it holds up after the hundredth use, not just the first.
+          Whether you're dressing for work, travel, or weekends, our collections are thoughtfully designed to
+          help you express your personal style with confidence.
         </p>
       </Reveal>
 

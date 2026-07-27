@@ -43,7 +43,7 @@ export default function ImageGallerySlideshow({ className = '' }) {
   );
 
   if (images === null) {
-    return <Skeleton variant="rect" height="100%" className={`rounded-2xl aspect-[5/4] border border-line ${className}`} />;
+    return <Skeleton variant="rect" height="100%" className={`rounded-2xl aspect-[5/4] border-2 border-accent-300 shadow-lg shadow-lg ${className}`} />;
   }
   if (images.length === 0) return null;
 
@@ -51,7 +51,7 @@ export default function ImageGallerySlideshow({ className = '' }) {
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden aspect-[5/4] bg-ink/5 border border-line ${className}`}
+      className={`relative rounded-2xl overflow-hidden aspect-[5/4] bg-ink/5 border-2 border-accent-300 shadow-lg shadow-black/60 ${className}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

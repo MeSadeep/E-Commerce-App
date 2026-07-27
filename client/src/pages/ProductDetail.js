@@ -93,7 +93,7 @@ export default function ProductDetail() {
     <main className="max-w-5xl mx-auto px-4 md:px-8 py-16">
       <div className="grid md:grid-cols-2 gap-12 mb-12">
         <div>
-          <img src={mainImage} alt={product.name} className="rounded-2xl w-full aspect-square object-cover mb-3 border border-line" />
+          <img src={mainImage} alt={product.name} className="rounded-2xl w-full aspect-square object-cover mb-3 border-2 border-accent-300 shadow-lg shadow-black/50" />
           {images.length > 1 && (
             <div className="flex gap-2">
               {images.map((src, i) => (
