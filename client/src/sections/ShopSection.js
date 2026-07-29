@@ -47,7 +47,7 @@ export default function ShopSection() {
 
       {/* Showcase panel — a hero moment for the shop itself before the full grid */}
       {!query && (
-        <Reveal className="grid md:grid-cols-2 gap-8 items-center mb-16">
+        <Reveal className="grid md:grid-cols-2 gap-8 items-center mb-16 shadow-xl bg-gradient-to-b from-accent-50/50 to-accent-100 rounded-2xl p-6 md:p-2">
           <ImageGallerySlideshow />
           <div>
             <h3 className="font-display font-bold text-3xl tracking-tight mb-4">Shop items</h3>
