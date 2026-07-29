@@ -11,11 +11,38 @@ export default function HeroSection() {
         {/* Wave background — built as layered SVG gradients rather than a
             stock photo, so it's exactly reproducible and never depends on an
             external image source. */}
-        <img
-           src="https://res.cloudinary.com/s3j01zmg/image/upload/v1785185282/pexels-rachel-claire-5531541_1_hweepv.jpg"
-           alt="Hero background"
-           className="absolute inset-0 w-full h-full object-cover opacity-40"
-        />
+        <svg
+          className="absolute inset-0 w-full h-full"
+          viewBox="0 0 1600 900"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="wave1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#164E63" />
+              <stop offset="100%" stopColor="#0A0F1E" />
+            </linearGradient>
+            <linearGradient id="wave2" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stopColor="#0E7490" />
+              <stop offset="100%" stopColor="#22D3EE" />
+            </linearGradient>
+          </defs>
+          <rect width="1600" height="900" fill="#0A0F1E" />
+          <motion.path
+            d="M0,560 C300,460 500,660 800,510 C1100,360 1300,560 1600,460 L1600,900 L0,900 Z"
+            fill="url(#wave1)"
+            opacity="0.85"
+            animate={reduce ? {} : { x: [0, 20, 0] }}
+            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.path
+            d="M0,620 C350,520 550,720 850,570 C1150,420 1350,620 1600,520 L1600,900 L0,900 Z"
+            fill="url(#wave2)"
+            opacity="0.45"
+            animate={reduce ? {} : { x: [0, -30, 0] }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </svg>
 
         {/* Ambient drifting gradient overlay — slow, subtle, never distracting */}
         <motion.div
