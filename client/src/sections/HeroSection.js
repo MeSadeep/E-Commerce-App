@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export default function HeroSection() {
   const reduce = useReducedMotion();
+  const { loginWithRedirect, isAuthenticated } = useAuth0();
 
   return (
     <section id="home" className="scroll-mt-28 mx-4 md:mx-8 pt-10">
@@ -77,12 +79,11 @@ export default function HeroSection() {
               </span>
             </Link>
 
-            <Link
-              to="/#about"
-              className="inline-flex items-center gap-6 bg-white/2 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
-           >
-              Log in
-            </Link>
+            {!isAuthenticated && (
+              <button onClick={() => loginWithRedirect()} className="inline-flex items-center gap-6 bg-white/2 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm">
+                Log in
+              </button>
+            )}
           </motion.div>
 
           {/* Modern Trust Badges / Stats Bar */}
