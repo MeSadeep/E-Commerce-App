@@ -6,7 +6,7 @@ export default function HeroSection() {
   const reduce = useReducedMotion();
 
   return (
-    <section id="home" className="scroll-mt-28 mx-4 md:mx-8 pt-6">
+    <section id="home" className="scroll-mt-28 mx-4 md:mx-8 pt-10">
       <div className="relative mx-auto max-w-6xl rounded-xl2 overflow-hidden bg-ink min-h-[560px] flex flex-col">
         {/* Wave background — built as layered SVG gradients rather than a
             stock photo, so it's exactly reproducible and never depends on an
@@ -79,7 +79,7 @@ export default function HeroSection() {
 
             <Link
               to="/#about"
-              className="inline-flex items-center gap-6 bg-white/10 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+              className="inline-flex items-center gap-6 bg-white/2 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
            >
               Log in
             </Link>
@@ -87,7 +87,7 @@ export default function HeroSection() {
 
           {/* Modern Trust Badges / Stats Bar */}
   <motion.div 
-    className="mt-8 pt-6 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-6"
+    className="mt-8 pt-6 border-t border-accent-300/50 grid grid-cols-2 md:grid-cols-4 gap-6"
     initial={reduce ? false : { opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.7, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}

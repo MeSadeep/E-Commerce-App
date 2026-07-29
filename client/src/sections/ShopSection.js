@@ -50,7 +50,7 @@ export default function ShopSection() {
         <Reveal className="grid md:grid-cols-2 gap-8 items-center mb-16 shadow-xl bg-gradient-to-b from-accent-50/50 to-accent-100 rounded-2xl p-6 md:p-2">
           <ImageGallerySlideshow />
           <div>
-            <h3 className="font-display font-bold text-3xl tracking-tight mb-4">Shop items</h3>
+            <h3 className="font-display font-bold text-3xl tracking-tight mb-4">Shop Collection</h3>
             <p className="text-ink/60 mb-8 max-w-md">
               Every product here earned its place through the same process:
               materials tested, tolerances checked, and a long look under

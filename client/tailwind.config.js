@@ -8,14 +8,14 @@ module.exports = {
         paper: '#F7F9FC',      // cool off-white — page bg
         accent: {              // cyan — primary brand accent (was "brass"/amber)
           50: '#ECFEFF',
-          100: '#CFFAFE',
-          300: '#67E8F9',
-          500: '#22D3EE',
-          600: '#0E7490',
-          800: '#164E63',
+          100: '#CAD2C5',
+          300: '#84A98C',
+          500: '#52796F',
+          600: '#354F52',
+          800: '#2F3E46',
         },
         flash: {               // orange — used sparingly for specific CTA moments
-          500: '#F97316',      // (Login button, hero button icon) per the Figma reference
+          500: '#FFA62B',      // (Login button, hero button icon) per the Figma reference
           600: '#EA580C',
         },
         line: '#E2E8F0',       // cool-toned hairline borders on paper

@@ -60,18 +60,20 @@ export default function AboutSection() {
 
         <Reveal delay={0.2} className="grid grid-cols-2 gap-4">
           <img
-            src="https://picsum.photos/seed/aperture-about-1/500/650"
-            alt=""
+            src="https://res.cloudinary.com/s3j01zmg/image/upload/v1785338030/pexels-bymuratisikofficial-37036181_qh77da.jpg"
+            alt="About Aperture: A team member in a studio setting"
             className="rounded-2xl w-full h-full object-cover col-span-1 row-span-2"
           />
           <img
-            src="https://picsum.photos/seed/aperture-about-2/500/300"
-            alt=""
+            src="https://res.cloudinary.com/s3j01zmg/image/upload/v1785338034/pexels-uiliamnornberg-28318803_xxufvb.jpg"
+            alt="About Aperture: A product shot in a natural light setting"
             className="rounded-2xl w-full h-40 object-cover"
           />
-          <div className="rounded-2xl bg-accent-50 flex items-center justify-center h-40">
-            <ApertureMark size={56} />
-          </div>
+          <img
+            src="https://res.cloudinary.com/s3j01zmg/image/upload/v1785338531/pexels-johndetochka-10956683_kcmpwz.jpg"
+            alt="About Aperture: A product shot in a natural light setting"
+            className="rounded-2xl w-full h-40 object-cover"
+          />
         </Reveal>
       </div>
     </section>
