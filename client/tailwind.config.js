@@ -21,7 +21,7 @@ module.exports = {
         line: '#E2E8F0',       // cool-toned hairline borders on paper
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
+        display: ['"Playwrite DE Grund"', 'cursive'],
         body: ['Inter', 'sans-serif'],
       },
       borderRadius: {

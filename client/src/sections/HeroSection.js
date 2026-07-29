@@ -33,88 +33,48 @@ export default function HeroSection() {
           APERTURE
         </motion.span>
 
-        <div className="relative flex-1 flex flex-col justify-end items-start text-left p-6 md:p-12">
-  <motion.div
-    className="flex flex-col items-start gap-4 max-w-4xl"
-    initial={reduce ? false : { opacity: 0, y: 24, filter: 'blur(6px)' }}
-    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-  >
-    {/* Description Paragraph */}
-    <p className="font-body text-white/60 text-sm max-w-[220px]">
-      Discover timeless fashion crafted for every occasion.
-    </p>
-
-    {/* Main Headline */}
-    <div>
-      <h1
-        className="font-mono font-bold text-accent-300 text-5xl md:text-7xl leading-[1.15] tracking-tight"
-        style={{ textShadow: '0 0 18px rgba(34, 211, 238, 0.55), 0 0 40px rgba(34, 211, 238, 0.25)' }}
-      >
-        Style That Speaks for You
-      </h1>
-    </div>
-  </motion.div>
-
-  {/* Buttons Container */}
-  <motion.div
-    className="mt-8 flex items-center justify-end gap-3 flex-wrap"
-    initial={reduce ? false : { opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-  >
-    <Link
-      to="/#shop"
-      className="inline-flex items-center gap-3 bg-white text-ink rounded-full pl-6 pr-2 py-2 font-body text-sm font-medium hover:bg-accent-100 transition-colors"
-    >
-      Shop the collection
-      <span className="w-8 h-8 rounded-full bg-flash-500 flex items-center justify-center">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3 11L11 3M11 3H4M11 3V10" stroke="#0A0F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    </Link>
-
-    <Link
-      to="/#about"
-      className="inline-flex items-center gap-3 bg-white/5 text-white border border-accent-300 rounded-full px-10 py-3 font-body text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-xs"
-    >
-      Log in
-    </Link>
-  </motion.div>
-
-  {/* Modern Trust Badges / Stats Bar */}
-  <motion.div 
-    className="mt-12 pt-2 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-6 w-full text-left"
-    initial={reduce ? false : { opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.7, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-  >
-    {/* Stat 1 */}
-    <div className="flex flex-col items-end">
-      <span className="font-mono text-white text-lg md:text-xl font-bold">500+</span>
-      <span className="font-body text-white/50 text-xs tracking-wide uppercase mt-0.5">Premium Products</span>
-    </div>
-
-    {/* Stat 2 */}
-    <div className="flex flex-col items-end">
-      <span className="font-mono text-white text-lg md:text-xl font-bold">25,000+</span>
-      <span className="font-body text-white/50 text-xs tracking-wide uppercase mt-0.5">Happy Customers</span>
-    </div>
-
-    {/* Stat 3 */}
-    <div className="flex flex-col items-end">
-      <span className="font-mono text-accent-300 text-lg md:text-xl font-bold">Free</span>
-      <span className="font-body text-white/50 text-xs tracking-wide uppercase mt-0.5">Shipping Over $75</span>
-    </div>
-
-    {/* Stat 4 */}
-    <div className="flex flex-col items-end">
-      <span className="font-mono text-white text-lg md:text-xl font-bold">30-Day</span>
-      <span className="font-body text-white/50 text-xs tracking-wide uppercase mt-0.5">Easy Returns</span>
-    </div>
-  </motion.div>
-</div>
+        <div className="relative flex-1 flex flex-col justify-end p-6 md:p-12">
+          <motion.div
+            className="flex items-start justify-between gap-6 flex-wrap"
+            initial={reduce ? false : { opacity: 0, y: 24, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <p className="font-body text-white/60 text-sm max-w-[220px]">
+              Precision-made goods, engineered for people who notice the details.
+            </p>
+            <div className="max-w-2xl">
+              {/* Monospace + cyan glow — deliberately scoped to just this
+                  headline (the rest of the site keeps Space Grotesk) to
+                  match the Figma reference's distinct hero treatment without
+                  changing the whole app's typography. */}
+              <h1
+                className="font-mono font-bold text-accent-300 text-3xl md:text-5xl leading-[1.15] tracking-tight"
+                style={{ textShadow: '0 0 18px rgba(34, 211, 238, 0.55), 0 0 40px rgba(34, 211, 238, 0.25)' }}
+              >
+                Goods built to be looked at closely
+              </h1>
+            </div>
+          </motion.div>
+          <motion.div
+            className="mt-8"
+            initial={reduce ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Link
+              to="/#shop"
+              className="inline-flex items-center gap-3 bg-white text-ink rounded-full pl-6 pr-2 py-2 font-body text-sm font-medium hover:bg-flash-500/10 transition-colors"
+            >
+              Shop the collection
+              <span className="w-8 h-8 rounded-full bg-flash-500 flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 11L11 3M11 3H4M11 3V10" stroke="#0A0F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </Link>
+          </motion.div>
+        </div>
       </div>
     </section>
   );
