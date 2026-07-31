@@ -15,15 +15,19 @@ export default function Home() {
   // changes) or arriving fresh from another route like /cart (Home mounts
   // and location.hash is already set on first render).
   //
-  // Why several attempts instead of one: sections further down the page
-  // (About, FAQ, Contact) sit below images that are still loading (the Hero
-  // photo, About's images, the Shop showcase slideshow's fetched photos).
-  // A single scroll fired too early lands at the right position for that
-  // instant, then the page keeps growing as images finish loading, silently
-  // shifting the target section further down — leaving the navbar
-  // overlapping mid-content instead of sitting cleanly above the section.
-  // Re-issuing the same scroll a few times over ~1.2s corrects for that
-  // without needing a more complex ResizeObserver/MutationObserver setup.
+  // IMPORTANT: this only depends on location.hash, not the whole location
+  // object. The Shop filter bar updates the URL's query string (e.g.
+  // ?category=Electronics) via setSearchParams, which changes location.search
+  // but not location.hash — if this effect reacted to the whole location
+  // object, every filter change would re-trigger it, see no hash present,
+  // and scroll the page to the top (looking like an unwanted jump back to
+  // the homepage). Depending on just the hash avoids that entirely, while
+  // still firing correctly on mount and on real nav-link clicks.
+  //
+  // Several scroll attempts (not just one) because sections further down
+  // the page sit below images that are still loading (Hero photo, About's
+  // images, the Shop showcase slideshow) — a single early scroll can land
+  // right, then get silently pushed off by the page growing as those finish.
   useEffect(() => {
     if (location.hash) {
       const id = location.hash.slice(1);
@@ -37,7 +41,8 @@ export default function Home() {
     } else {
       window.scrollTo({ top: 0 });
     }
-  }, [location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.hash]);
 
   return (
     <main>
