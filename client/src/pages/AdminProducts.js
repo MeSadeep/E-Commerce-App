@@ -16,11 +16,11 @@ export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newProduct, setNewProduct] = useState({ name: '', price_usd: '', stock: '', image_url: '', description: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', price_usd: '', stock: '', image_url: '', description: '', category: '' });
 
   // Edit modal state — null when closed, otherwise the product being edited
   const [editing, setEditing] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', price_usd: '', stock: '', image_url: '', description: '' });
+  const [editForm, setEditForm] = useState({ name: '', price_usd: '', stock: '', image_url: '', description: '', category: '' });
   const [editErrors, setEditErrors] = useState({});
   const [editSaving, setEditSaving] = useState(false);
 
@@ -66,12 +66,13 @@ export default function AdminProducts() {
         data: {
           name: newProduct.name,
           description: newProduct.description || undefined,
+          category: newProduct.category || undefined,
           price_cents: priceCents,
           stock: Number(newProduct.stock),
           image_url: newProduct.image_url || undefined,
         },
       });
-      setNewProduct({ name: '', price_usd: '', stock: '', image_url: '', description: '' });
+      setNewProduct({ name: '', price_usd: '', stock: '', image_url: '', description: '', category: '' });
       toast.success('Product added');
       loadProducts();
     } catch (err) {
@@ -120,6 +121,7 @@ export default function AdminProducts() {
     setEditForm({
       name: product.name,
       description: product.description || '',
+      category: product.category || '',
       price_usd: (product.price_cents / 100).toFixed(2),
       stock: String(product.stock),
       image_url: product.image_url || '',
@@ -148,6 +150,7 @@ export default function AdminProducts() {
         data: {
           name: editForm.name,
           description: editForm.description || null,
+          category: editForm.category || null,
           price_cents: priceCents,
           stock: Number(editForm.stock),
           image_url: editForm.image_url || null,
@@ -180,6 +183,7 @@ export default function AdminProducts() {
         <input className={inputCls} placeholder="Price in dollars (e.g. 72.55)" type="number" step="0.01" min="0" value={newProduct.price_usd} onChange={(e) => setNewProduct({ ...newProduct, price_usd: e.target.value })} required />
         <input className={inputCls} placeholder="Stock" type="number" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} required />
         <input className={inputCls} placeholder="Image URL (optional)" value={newProduct.image_url} onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })} />
+        <input className={inputCls} placeholder="Category (e.g. Electronics)" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} />
         <textarea className={`${inputCls} w-full`} rows={2} placeholder="Description (optional)" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
         <button className="bg-ink text-white rounded-full px-5 py-2 text-sm font-medium hover:bg-ink/90 transition-colors" type="submit">Add</button>
       </form>
@@ -189,6 +193,7 @@ export default function AdminProducts() {
           <tr>
             <th className="px-4 py-3">Image</th>
             <th className="px-4 py-3">Name</th>
+            <th className="px-4 py-3">Category</th>
             <th className="px-4 py-3">Price</th>
             <th className="px-4 py-3">Stock</th>
             <th className="px-4 py-3">Status</th>
@@ -206,6 +211,7 @@ export default function AdminProducts() {
                 />
               </td>
               <td className="px-4 py-3">{p.name}</td>
+              <td className="px-4 py-3 text-ink/50">{p.category || '—'}</td>
               <td className="px-4 py-3">{(p.price_cents / 100).toFixed(2)} {p.currency}</td>
               <td className="px-4 py-3">
                 <input
@@ -271,6 +277,13 @@ export default function AdminProducts() {
                 value={editForm.description}
                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                 placeholder="What makes this product worth buying?"
+              />
+              <TextField
+                label="Category"
+                value={editForm.category}
+                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                placeholder="e.g. Electronics"
+                helperText="Used by the Shop page's category filter"
               />
               <TextField
                 label="Price (dollars)"

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SearchX } from 'lucide-react';
+import { SearchX, X } from 'lucide-react';
 import { publicApi } from '../api/client';
 import ProductCard from '../components/ProductCard';
 import PopularProducts from '../components/PopularProducts';
@@ -10,27 +10,78 @@ import Skeleton from '../components/ui/Skeleton';
 import ErrorState from '../components/ui/ErrorState';
 import EmptyState from '../components/ui/EmptyState';
 
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'price_asc', label: 'Price: Low to High' },
+  { value: 'price_desc', label: 'Price: High to Low' },
+  { value: 'name_asc', label: 'Name: A to Z' },
+];
+
 export default function ShopSection() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
+  const category = searchParams.get('category') || '';
+  const minPrice = searchParams.get('min_price') || '';
+  const maxPrice = searchParams.get('max_price') || '';
+  const sort = searchParams.get('sort') || 'newest';
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  // Local text-input state for price, so typing doesn't refetch on every
+  // keystroke — only commits to the URL (and triggers a fetch) on blur/Enter.
+  const [minPriceInput, setMinPriceInput] = useState(minPrice);
+  const [maxPriceInput, setMaxPriceInput] = useState(maxPrice);
+  useEffect(() => {
+    setMinPriceInput(minPrice);
+    setMaxPriceInput(maxPrice);
+  }, [minPrice, maxPrice]);
+
+  useEffect(() => {
+    publicApi.get('/api/products/categories').then((res) => setCategories(res.data)).catch(() => setCategories([]));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
     setError(false);
-    const url = query ? `/api/products?search=${encodeURIComponent(query)}` : '/api/products';
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    if (category) params.set('category', category);
+    if (minPrice) params.set('min_price', minPrice);
+    if (maxPrice) params.set('max_price', maxPrice);
+    if (sort && sort !== 'newest') params.set('sort', sort);
+    const qs = params.toString();
+
     publicApi
-      .get(url)
+      .get(`/api/products${qs ? `?${qs}` : ''}`)
       .then((res) => setProducts(res.data))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [query]);
+  }, [query, category, minPrice, maxPrice, sort]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Updates the URL's search params while preserving whatever else is
+  // already there (like ?q= from the navbar search) — this is what makes
+  // filters shareable/bookmarkable, consistent with how search already works.
+  const updateFilter = (key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
+
+  const clearFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    ['category', 'min_price', 'max_price', 'sort'].forEach((k) => next.delete(k));
+    setSearchParams(next, { replace: true });
+  };
+
+  const hasActiveFilters = category || minPrice || maxPrice || (sort && sort !== 'newest');
 
   return (
     <section id="shop" className="scroll-mt-28 max-w-6xl mx-auto px-4 md:px-8 pt-24">
@@ -77,6 +128,79 @@ export default function ShopSection() {
       <div id="shop-grid" className="scroll-mt-28">
         {!query && <h3 className="font-display font-bold text-2xl tracking-tight mb-6">All products</h3>}
 
+        {/* Filter bar — category, price range, and sort, all synced to the
+            URL so filters are shareable/bookmarkable, same pattern as search. */}
+        <div className="flex flex-wrap items-center gap-3 mb-6 pb-6 border-b border-line">
+          {categories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => updateFilter('category', '')}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                  !category ? 'bg-ink text-white border-ink' : 'border-line text-ink/60 hover:border-accent-300'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateFilter('category', c)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    category === c ? 'bg-ink text-white border-ink' : 'border-line text-ink/60 hover:border-accent-300'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Min $"
+              value={minPriceInput}
+              onChange={(e) => setMinPriceInput(e.target.value)}
+              onBlur={() => updateFilter('min_price', minPriceInput)}
+              onKeyDown={(e) => e.key === 'Enter' && updateFilter('min_price', minPriceInput)}
+              className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
+            />
+            <span className="text-ink/30">–</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Max $"
+              value={maxPriceInput}
+              onChange={(e) => setMaxPriceInput(e.target.value)}
+              onBlur={() => updateFilter('max_price', maxPriceInput)}
+              onKeyDown={(e) => e.key === 'Enter' && updateFilter('max_price', maxPriceInput)}
+              className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
+            />
+
+            <select
+              value={sort}
+              onChange={(e) => updateFilter('sort', e.target.value === 'newest' ? '' : e.target.value)}
+              className="border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 text-sm text-ink/50 hover:text-red-600"
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Loading state — skeleton cards preview the real grid shape instead of a spinner */}
         {loading && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
@@ -101,8 +225,14 @@ export default function ShopSection() {
         {!loading && !error && products.length === 0 && (
           <EmptyState
             icon={<SearchX size={40} strokeWidth={1.5} />}
-            title={query ? `No products match "${query}"` : 'No products yet'}
-            description={query ? 'Try a different search term.' : 'Check back soon.'}
+            title={query ? `No products match "${query}"` : hasActiveFilters ? 'No products match these filters' : 'No products yet'}
+            description={
+              query
+                ? 'Try a different search term.'
+                : hasActiveFilters
+                ? 'Try adjusting the price range or category.'
+                : 'Check back soon.'
+            }
           />
         )}
 

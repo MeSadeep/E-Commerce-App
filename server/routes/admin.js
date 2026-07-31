@@ -11,12 +11,27 @@ const router = express.Router();
 // Every route below requires: valid Auth0 login AND the "admin" role claim.
 router.use(checkJwt, requireRole('admin'));
 
+// GET /api/admin/products - unlike the public listing, this includes
+// soft-deleted (is_active = false) products too, so the admin panel can
+// still find and reactivate them.
+router.get('/products', async (req, res, next) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT id, name, description, category, price_cents, currency, image_url, stock, is_active FROM products ORDER BY id ASC'
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/admin/products - create a product
 router.post(
   '/products',
   [
     body('name').isString().trim().isLength({ min: 1, max: 255 }),
     body('description').optional().isString().trim(),
+    body('category').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('price_cents').isInt({ min: 0 }),
     body('currency').optional().isString().isLength({ min: 3, max: 3 }),
     body('image_url').optional().isURL(),
@@ -27,12 +42,12 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      const { name, description, price_cents, currency = 'usd', image_url, stock } = req.body;
+      const { name, description, category, price_cents, currency = 'usd', image_url, stock } = req.body;
       const result = await db.withServiceContext(async (client) => {
         const { rows } = await client.query(
-          `INSERT INTO products (name, description, price_cents, currency, image_url, stock)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [name, description || null, price_cents, currency, image_url || null, stock]
+          `INSERT INTO products (name, description, category, price_cents, currency, image_url, stock)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [name, description || null, category || null, price_cents, currency, image_url || null, stock]
         );
         return rows[0];
       });
@@ -44,11 +59,12 @@ router.post(
   }
 );
 
-// PATCH /api/admin/products/:id - update a product (e.g. price, stock)
+// PATCH /api/admin/products/:id - update a product (e.g. price, stock, category)
 router.patch(
   '/products/:id',
   [
     body('name').optional().isString().trim().isLength({ min: 1, max: 255 }),
+    body('category').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('price_cents').optional().isInt({ min: 0 }),
     body('stock').optional().isInt({ min: 0 }),
     body('image_url').optional().isURL(),
@@ -57,7 +73,7 @@ router.patch(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const allowedFields = ['name', 'description', 'price_cents', 'currency', 'image_url', 'stock', 'is_active'];
+    const allowedFields = ['name', 'description', 'category', 'price_cents', 'currency', 'image_url', 'stock', 'is_active'];
     const updates = Object.keys(req.body).filter((k) => allowedFields.includes(k));
     if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
@@ -80,15 +96,27 @@ router.patch(
   }
 );
 
-// GET /api/admin/products - unlike the public listing, this includes
-// soft-deleted (is_active = false) products too, so the admin panel can
-// still find and reactivate them.
-router.get('/products', async (req, res, next) => {
+// POST /api/admin/products/bulk-stock - CSV upload: columns "id,stock"
+router.post('/products/bulk-stock', [body('csv').isString().isLength({ min: 1 })], async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   try {
-    const { rows } = await db.query(
-      'SELECT id, name, description, price_cents, currency, image_url, stock, is_active FROM products ORDER BY id ASC'
-    );
-    res.json(rows);
+    const records = parse(req.body.csv, { columns: true, skip_empty_lines: true, trim: true });
+    const updated = [];
+
+    await db.withServiceContext(async (client) => {
+      for (const row of records) {
+        const id = parseInt(row.id, 10);
+        const stock = parseInt(row.stock, 10);
+        if (!Number.isInteger(id) || !Number.isInteger(stock) || stock < 0) continue; // skip malformed rows
+        await client.query('UPDATE products SET stock = $1 WHERE id = $2', [stock, id]);
+        updated.push({ id, stock });
+      }
+    });
+
+    await invalidateProductsCache();
+    res.json({ updatedCount: updated.length, updated });
   } catch (err) {
     next(err);
   }
@@ -97,11 +125,11 @@ router.get('/products', async (req, res, next) => {
 // DELETE /api/admin/products/:id
 // A product that has ever actually been ordered can't be hard-deleted —
 // order_items.product_id references it, and removing the row would either
-// fail (as it just did for you) or, worse, silently corrupt that order's
-// history. So: try a real delete first (fine for a product nobody's ever
-// bought), and if Postgres rejects it with a foreign-key-violation (error
-// code 23503), fall back to soft-delete — the product stops appearing in
-// the storefront, but its row (and the orders pointing at it) stay intact.
+// fail or silently corrupt that order's history. So: try a real delete
+// first (fine for a product nobody's ever bought), and if Postgres rejects
+// it with a foreign-key-violation (error code 23503), fall back to
+// soft-delete — the product stops appearing in the storefront, but its row
+// (and the orders pointing at it) stay intact.
 router.delete('/products/:id', async (req, res, next) => {
   try {
     const hardDeleted = await db.withServiceContext(async (client) => {
@@ -132,34 +160,6 @@ router.delete('/products/:id', async (req, res, next) => {
     await invalidateProductsCache();
     if (!hardDeleted) return res.status(404).json({ error: 'Product not found' });
     res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/admin/products/bulk-stock - CSV upload: columns "id,stock"
-// Send the CSV file's raw text content as { csv: "..." } in the JSON body
-// (simplest for a small internal tool; a real file-upload UI could use multer instead).
-router.post('/products/bulk-stock', [body('csv').isString().isLength({ min: 1 })], async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-  try {
-    const records = parse(req.body.csv, { columns: true, skip_empty_lines: true, trim: true });
-    const updated = [];
-
-    await db.withServiceContext(async (client) => {
-      for (const row of records) {
-        const id = parseInt(row.id, 10);
-        const stock = parseInt(row.stock, 10);
-        if (!Number.isInteger(id) || !Number.isInteger(stock) || stock < 0) continue; // skip malformed rows
-        await client.query('UPDATE products SET stock = $1 WHERE id = $2', [stock, id]);
-        updated.push({ id, stock });
-      }
-    });
-
-    await invalidateProductsCache();
-    res.json({ updatedCount: updated.length, updated });
   } catch (err) {
     next(err);
   }
@@ -213,15 +213,9 @@ router.post(
 
     try {
       const { size, color, material, price_cents, stock } = req.body;
-      // Drop any blank entries (empty inputs from the admin form) and cap at 4
-      // server-side too — the frontend limits to 4 inputs, but never trust
-      // that alone. image_url (singular) mirrors the first image, kept for
-      // any older code path that still reads the single-image column.
       const imageUrls = (req.body.image_urls || []).filter(Boolean).slice(0, 4);
 
       const result = await db.withServiceContext(async (client) => {
-        // Confirm the parent product actually exists, so a variant can't be
-        // silently attached to a nonexistent/deleted product id.
         const parent = await client.query('SELECT id FROM products WHERE id = $1', [req.params.productId]);
         if (parent.rows.length === 0) return null;
 
@@ -263,13 +257,6 @@ router.patch(
     if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
     try {
-      // image_urls needs two special handling steps a generic dynamic-SET
-      // builder can't do on its own:
-      //  1. It must be JSON.stringify'd — the pg driver serializes a raw JS
-      //     array as a Postgres array literal ({a,b,c}), not JSON, which
-      //     would be the wrong format for a jsonb column.
-      //  2. image_url (singular, kept for backward compatibility) needs to
-      //     stay in sync as image_urls[0] whenever image_urls changes.
       const fieldsToSet = [...updates];
       if (updates.includes('image_urls') && !fieldsToSet.includes('image_url')) {
         fieldsToSet.push('image_url');
