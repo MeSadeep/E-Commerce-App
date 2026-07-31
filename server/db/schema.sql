@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  category VARCHAR(100),
   price_cents INTEGER NOT NULL CHECK (price_cents >= 0), -- store money as integer cents, never floats
   currency VARCHAR(3) NOT NULL DEFAULT 'usd',
   image_url TEXT,
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Safe to run even if the table already exists from before this column was added.
-ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100);
 
 -- Why soft-delete: order_items.product_id references products(id), and a
 -- product that has ever actually been ordered CAN'T be hard-deleted without
