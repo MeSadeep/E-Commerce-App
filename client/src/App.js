@@ -17,6 +17,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrders from './pages/AdminOrders';
+import AdminOrderDetail from './pages/AdminOrderDetail';
 import AdminCustomers from './pages/AdminCustomers';
 import AdminChat from './pages/AdminChat';
 import AdminEmail from './pages/AdminEmail';
@@ -53,6 +54,7 @@ export default function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
           <Route path="orders" element={<AdminOrders />} />
+          <Route path="orders/:id" element={<AdminOrderDetail />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="chat" element={<AdminChat />} />
           <Route path="email" element={<AdminEmail />} />
