@@ -4,13 +4,14 @@ import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } fro
 
 const DEFAULT_SCALE_RANGE = [1, 1.15, 1]; // subtle — these are text pills, not dock icons
 const DEFAULT_DISTANCE = [-120, 0, 120]; // px from cursor to item center where the effect fades out
+const POINTER_OUTSIDE = -100000;
 
 function DockItem({ mouseX, to, className, children }) {
   const ref = useRef(null);
   const reduce = useReducedMotion();
 
   const distance = useTransform(mouseX, (val) => {
-    if (val === null || reduce) return 9999; // "cursor is nowhere near" -> no magnification
+    if (val === POINTER_OUTSIDE || reduce) return 9999; // cursor is nowhere near
     const bounds = ref.current?.getBoundingClientRect();
     if (!bounds) return 9999;
     return val - (bounds.left + bounds.width / 2);
@@ -39,16 +40,17 @@ function DockItem({ mouseX, to, className, children }) {
  * A shared mouseX value (tracked on the container) drives every item's
  * distance-based scale — this is what makes neighboring items also lift
  * slightly as the cursor passes by, rather than each item reacting only to
- * its own hover state. Resets to null on mouse leave, and is skipped
+ * its own hover state. Resets to a numeric offscreen value on mouse leave so
+ * Framer Motion never has to interpolate a null motion value, and is skipped
  * entirely for prefers-reduced-motion.
  */
 export default function MagneticDock({ items, itemClassName, className = '' }) {
-  const mouseX = useMotionValue(null);
+  const mouseX = useMotionValue(POINTER_OUTSIDE);
 
   return (
     <div
       onMouseMove={(e) => mouseX.set(e.clientX)}
-      onMouseLeave={() => mouseX.set(null)}
+      onMouseLeave={() => mouseX.set(POINTER_OUTSIDE)}
       className={`flex items-center gap-1 ${className}`}
     >
       {items.map((item) => (

@@ -16,10 +16,11 @@ const SORT_OPTIONS = {
   price_desc: 'price_cents DESC',
   name_asc: 'name ASC',
 };
+const MAX_SEARCH_LENGTH = 100;
 
 // GET /api/products
 // Supports, all combinable:
-//   ?search=lamp            case-insensitive name search
+//   ?search=lamp            case-insensitive name/category/description search
 //   ?category=Electronics   exact category match
 //   ?min_price=10&max_price=50   dollars (converted to cents here)
 //   ?sort=price_asc         see SORT_OPTIONS above; defaults to "newest"
@@ -34,7 +35,9 @@ router.get(
   [
     query('min_price').optional().isFloat({ min: 0 }).withMessage('min_price must be a non-negative number'),
     query('max_price').optional().isFloat({ min: 0 }).withMessage('max_price must be a non-negative number'),
-    query('sort').optional().isIn(Object.keys(SORT_OPTIONS)).withMessage('Invalid sort option'),
+    query('search').optional().isString().isLength({ max: MAX_SEARCH_LENGTH }).withMessage('Search must be text of at most 100 characters'),
+    query('category').optional().isString().isLength({ max: 100 }).withMessage('Invalid category'),
+    query('sort').optional().isIn([...Object.keys(SORT_OPTIONS), 'relevance']).withMessage('Invalid sort option'),
   ],
   async (req, res, next) => {
     const errors = validationResult(req);
@@ -44,6 +47,9 @@ router.get(
     const category = typeof req.query.category === 'string' ? req.query.category.trim() : '';
     const minPrice = req.query.min_price !== undefined ? Math.round(Number(req.query.min_price) * 100) : null;
     const maxPrice = req.query.max_price !== undefined ? Math.round(Number(req.query.max_price) * 100) : null;
+    if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+      return res.status(400).json({ error: 'min_price cannot exceed max_price' });
+    }
     const sort = SORT_OPTIONS[req.query.sort] || SORT_OPTIONS.newest;
     const hasFilters = search || category || minPrice !== null || maxPrice !== null || req.query.sort;
 
@@ -60,8 +66,14 @@ router.get(
       const values = [];
 
       if (search) {
-        values.push(`%${search}%`);
-        conditions.push(`name ILIKE $${values.length}`);
+        values.push(search);
+        // strpos treats % and _ as ordinary characters, unlike an unescaped
+        // ILIKE pattern. Parameterized values keep the query safe.
+        conditions.push(`(
+          strpos(lower(name), lower($${values.length})) > 0 OR
+          strpos(lower(coalesce(category, '')), lower($${values.length})) > 0 OR
+          strpos(lower(coalesce(description, '')), lower($${values.length})) > 0
+        )`);
       }
       if (category) {
         values.push(category);
@@ -76,11 +88,20 @@ router.get(
         conditions.push(`price_cents <= $${values.length}`);
       }
 
+      const relevanceOrder = search ? `CASE
+        WHEN lower(name) = lower($1) THEN 0
+        WHEN left(lower(name), length($1)) = lower($1) THEN 1
+        WHEN strpos(lower(name), lower($1)) > 0 THEN 2
+        WHEN strpos(lower(coalesce(category, '')), lower($1)) > 0 THEN 3
+        ELSE 4 END, id DESC` : 'id DESC';
+      const orderBy = search && (!req.query.sort || req.query.sort === 'relevance')
+        ? relevanceOrder : req.query.sort === 'relevance' ? 'id DESC' : sort;
+
       const result = await db.query(
         `SELECT id, name, description, category, price_cents, currency, image_url, stock
          FROM products
          WHERE ${conditions.join(' AND ')}
-         ORDER BY ${sort}`,
+         ORDER BY ${orderBy}`,
         values
       );
 

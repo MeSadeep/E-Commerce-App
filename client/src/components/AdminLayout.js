@@ -3,7 +3,7 @@ import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, MessageSquare, Mail,
-  UserCircle, Settings, LogOut, Search, SlidersHorizontal, ChevronsLeft, Store,
+  UserCircle, Settings, LogOut, Search, SlidersHorizontal, ChevronsLeft, Store, Menu, X,
 } from 'lucide-react';
 import ApertureMark from './ApertureMark';
 import { useCart } from '../context/CartContext';
@@ -39,6 +39,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     clearCart();
@@ -54,58 +55,62 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-paper flex">
+    <div className="min-h-screen bg-paper flex min-w-0 mt-6 sm:mt-8">
+      {mobileOpen && (
+        <button type="button" className="fixed inset-0 z-40 bg-ink/50 lg:hidden" aria-label="Close admin menu" onClick={() => setMobileOpen(false)} />
+      )}
       {/* Sidebar */}
-      <aside className={`${collapsed ? 'w-20' : 'w-64'} shrink-0 bg-white border-r border-line flex flex-col transition-all duration-200`}>
+      <aside id="admin-sidebar" className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-line flex flex-col transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:shrink-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:w-20' : 'lg:w-64'}`}>
         <div className="flex items-center justify-between px-4 py-5">
           <Link to="/" className="flex items-center gap-2 overflow-hidden">
             <div className="w-9 h-9 rounded-xl bg-ink flex items-center justify-center shrink-0">
               <ApertureMark size={20} color="#67E8F9" />
             </div>
-            {!collapsed && (
+            {(!collapsed || mobileOpen) && (
               <div>
                 <div className="font-display font-bold text-sm leading-tight">Aperture Inc.</div>
                 <div className="text-xs text-ink/40">Admin console</div>
               </div>
             )}
           </Link>
-          <button onClick={() => setCollapsed((c) => !c)} className="text-ink/40 hover:text-ink">
+          <button type="button" onClick={() => setMobileOpen(false)} className="p-2 text-ink/60 lg:hidden" aria-label="Close admin menu"><X size={20} /></button>
+          <button type="button" onClick={() => setCollapsed((c) => !c)} className="hidden lg:block text-ink/40 hover:text-ink" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             <ChevronsLeft size={18} className={collapsed ? 'rotate-180' : ''} />
           </button>
         </div>
 
         <nav className="flex-1 px-3 space-y-6 overflow-y-auto">
           <div>
-            {!collapsed && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Main menu</p>}
+            {(!collapsed || mobileOpen) && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Main menu</p>}
             <div className="space-y-1">
               {mainItems.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to} to={to} end={end} className={linkCls}>
+                <NavLink key={to} to={to} end={end} className={linkCls} onClick={() => setMobileOpen(false)}>
                   <Icon size={18} />
-                  {!collapsed && <span>{label}</span>}
+                  {(!collapsed || mobileOpen) && <span>{label}</span>}
                 </NavLink>
               ))}
             </div>
           </div>
 
           <div>
-            {!collapsed && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Other</p>}
+            {(!collapsed || mobileOpen) && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Other</p>}
             <div className="space-y-1">
               {otherItems.map(({ to, label, icon: Icon }) => (
-                <NavLink key={to} to={to} className={linkCls}>
+                <NavLink key={to} to={to} className={linkCls} onClick={() => setMobileOpen(false)}>
                   <Icon size={18} />
-                  {!collapsed && <span>{label}</span>}
+                  {(!collapsed || mobileOpen) && <span>{label}</span>}
                 </NavLink>
               ))}
             </div>
           </div>
 
           <div>
-            {!collapsed && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Account</p>}
+            {(!collapsed || mobileOpen) && <p className="text-[11px] font-medium text-ink/35 uppercase tracking-wide px-3 mb-2">Account</p>}
             <div className="space-y-1">
               {accountItems.map(({ to, label, icon: Icon }) => (
-                <NavLink key={to} to={to} className={linkCls}>
+                <NavLink key={to} to={to} className={linkCls} onClick={() => setMobileOpen(false)}>
                   <Icon size={18} />
-                  {!collapsed && <span>{label}</span>}
+                  {(!collapsed || mobileOpen) && <span>{label}</span>}
                 </NavLink>
               ))}
             </div>
@@ -113,9 +118,9 @@ export default function AdminLayout() {
         </nav>
 
         <div className="px-3 pb-3">
-          <Link to="/" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-ink/60 hover:bg-accent-50 transition-colors">
+          <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-ink/60 hover:bg-accent-50 transition-colors">
             <Store size={18} />
-            {!collapsed && <span>Back to store</span>}
+            {(!collapsed || mobileOpen) && <span>Back to store</span>}
           </Link>
         </div>
 
@@ -126,7 +131,7 @@ export default function AdminLayout() {
             ) : (
               <div className="w-8 h-8 rounded-full bg-accent-100 shrink-0" />
             )}
-            {!collapsed && (
+            {(!collapsed || mobileOpen) && (
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{user?.name || 'Admin'}</div>
               </div>
@@ -144,8 +149,9 @@ export default function AdminLayout() {
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="bg-white border-b border-line px-6 py-4 flex items-center gap-4">
-          <form onSubmit={handleSearch} className="flex-1 max-w-md relative">
+        <header className="bg-white border-b border-line px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-4">
+          <button type="button" className="lg:hidden shrink-0 p-2 rounded-xl hover:bg-accent-50" aria-label="Open admin menu" aria-controls="admin-sidebar" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><Menu size={20} /></button>
+          <form onSubmit={handleSearch} className="flex-1 min-w-0 max-w-md relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
             <input
               value={search}
@@ -156,14 +162,15 @@ export default function AdminLayout() {
           </form>
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-line text-sm text-ink/60 hover:bg-accent-50"
+            className="flex shrink-0 items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border border-line text-sm text-ink/60 hover:bg-accent-50"
+            aria-label="Filters"
           >
             <SlidersHorizontal size={16} />
-            Filters
+            <span className="hidden sm:inline">Filters</span>
           </button>
         </header>
 
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8">
           <Outlet />
         </main>
       </div>

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
-import { Search, X } from 'lucide-react';
+import { Search, ShoppingCart, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import ApertureMark from './ApertureMark';
 import MagneticDock from './MagneticDock';
@@ -19,6 +19,7 @@ export default function Navbar() {
   const { isAuthenticated, loginWithRedirect, logout, user } = useAuth0();
   const { items, clearCart } = useCart();
   const navigate = useNavigate();
+  const { pathname, search: locationSearch } = useLocation();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -26,6 +27,12 @@ export default function Navbar() {
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
   const isAdmin = (user?.[ROLE_CLAIM] || []).map((r) => r.trim()).includes('admin');
+
+  // React Router keeps the document scroll position between pages.
+  // Hash-only navigation on the homepage does not change pathname.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -40,39 +47,54 @@ export default function Navbar() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchValue.trim()) {
-      navigate(`/?q=${encodeURIComponent(searchValue.trim())}#shop`);
+    const term = searchValue.trim();
+    if (term) {
+      navigate(`/?q=${encodeURIComponent(term)}#shop`);
     } else {
       navigate('/#shop');
     }
     setSearchOpen(false);
   };
 
+  const openSearch = () => {
+    setSearchValue(new URLSearchParams(locationSearch).get('q') || '');
+    setSearchOpen(true);
+    setOpen(false);
+  };
+
   return (
-    <header className="sticky top-4 z-30 mx-4 md:mx-8">
+    <header className="sticky top-2 sm:top-4 z-30 mx-3 sm:mx-4 md:mx-8">
       <div
-        className={`mx-auto max-w-6xl rounded-full flex items-center justify-between px-4 py-2 shadow-lg shadow-ink/10 transition-colors ${
+        className={`mx-auto max-w-6xl rounded-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2 shadow-lg shadow-ink/10 transition-colors ${
           scrolled ? 'bg-ink/90 backdrop-blur-md' : 'bg-ink'
         }`}
       >
-        <Link to="/#home" className="flex items-center gap-2 pl-1 pr-3 shrink-0">
+        <Link to="/#home" className={`flex items-center gap-2 pl-1 shrink-0 ${searchOpen ? 'max-[380px]:hidden' : ''}`}>
           <ApertureMark size={26} spin />
-          <span className="font-display font-bold text-white tracking-tight text-lg">APERTURE</span>
+          <span className="font-display font-bold text-white tracking-tight text-base sm:text-lg">APERTURE</span>
         </Link>
 
         {searchOpen ? (
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2 mx-4">
+          <form onSubmit={handleSearchSubmit} className="flex-1 min-w-0 flex items-center gap-2 ml-1 sm:mx-4">
             <input
               autoFocus
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              maxLength={100}
+              aria-label="Search products"
               placeholder="Search products…"
-              className="w-full bg-white/10 text-white placeholder-white/40 rounded-full px-4 py-2 text-sm focus:outline-none"
+              className="w-full min-w-0 bg-white/10 text-white placeholder-white/40 rounded-full px-3 sm:px-4 py-2 text-sm focus:outline-none"
             />
+            <button type="submit" aria-label="Submit search" className="text-white p-1.5 hover:text-flash-500"><Search size={18} /></button>
             <button
               type="button"
-              onClick={() => setSearchOpen(false)}
-              aria-label="Close search"
+              onClick={() => {
+                setSearchValue('');
+                setSearchOpen(false);
+                if (new URLSearchParams(locationSearch).has('q')) navigate('/#shop');
+              }}
+              aria-label="Clear search"
               className="text-white/60 hover:text-white p-1"
             >
               <X size={18} />
@@ -96,7 +118,7 @@ export default function Navbar() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setSearchOpen(true)}
+                onClick={openSearch}
                 aria-label="Search"
                 className="hidden sm:flex p-2 text-white/70 hover:text-white"
               >
@@ -118,19 +140,30 @@ export default function Navbar() {
                   >
                     My Orders
                   </NavLink>
-                  <button onClick={handleLogout} className="px-4 py-2 rounded-full bg-flash-500 text-white text-sm font-medium hover:bg-flash-600 transition-colors">
+                  <button onClick={handleLogout} className="hidden sm:block px-4 py-2 rounded-full bg-flash-500 text-white text-sm font-medium hover:bg-flash-600 transition-colors">
                     Log out
                   </button>
                 </>
               ) : (
-                <button onClick={() => loginWithRedirect()} className="px-4 py-2 rounded-full bg-flash-500 text-white text-sm font-medium hover:bg-flash-600 transition-colors">
+                <button onClick={() => loginWithRedirect()} className="hidden sm:block px-4 py-2 rounded-full bg-flash-500 text-white text-sm font-medium hover:bg-flash-600 transition-colors">
                   Log in
                 </button>
               )}
 
+              <NavLink
+                to="/cart"
+                aria-label={`Cart${count > 0 ? `, ${count} items` : ''}`}
+                className="sm:hidden relative flex items-center justify-center p-2 text-white hover:text-flash-500"
+                onClick={() => setOpen(false)}
+              >
+                <ShoppingCart size={19} />
+                {count > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-flash-500 text-ink text-[10px] font-bold flex items-center justify-center">{count > 9 ? '9+' : count}</span>}
+              </NavLink>
+
               <button
                 className="md:hidden p-2 text-white"
                 aria-label="Toggle menu"
+                aria-expanded={open}
                 onClick={() => setOpen((o) => !o)}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -144,6 +177,7 @@ export default function Navbar() {
 
       {open && (
         <div className="md:hidden mt-2 mx-auto max-w-6xl bg-ink rounded-3xl p-4 flex flex-col gap-1">
+          <button type="button" className={sectionLinkCls + ' text-left'} onClick={openSearch}>Search products</button>
           <Link to="/#home" className={sectionLinkCls} onClick={() => setOpen(false)}>Home</Link>
           <Link to="/#shop" className={sectionLinkCls} onClick={() => setOpen(false)}>Shop</Link>
           <Link to="/#about" className={sectionLinkCls} onClick={() => setOpen(false)}>About</Link>
@@ -154,6 +188,11 @@ export default function Navbar() {
             <NavLink to="/orders" className={navLink} onClick={() => setOpen(false)}>My Orders</NavLink>
           )}
           {isAdmin && <NavLink to="/admin" className={navLink} onClick={() => setOpen(false)}>Admin</NavLink>}
+          {isAuthenticated ? (
+            <button type="button" onClick={() => { setOpen(false); handleLogout(); }} className={sectionLinkCls + ' text-left sm:hidden'}>Log out</button>
+          ) : (
+            <button type="button" onClick={() => { setOpen(false); loginWithRedirect(); }} className={sectionLinkCls + ' text-left sm:hidden'}>Log in</button>
+          )}
         </div>
       )}
     </header>

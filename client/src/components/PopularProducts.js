@@ -30,9 +30,9 @@ export default function PopularProducts({ excludeId, limit = 4 }) {
 
   if (products === null) {
     return (
-      <div className="border border-line rounded-2xl overflow-hidden bg-white flex divide-x divide-line">
+      <div className="border border-line rounded-2xl overflow-hidden bg-white grid grid-cols-2 md:grid-cols-4">
         {Array.from({ length: limit }).map((_, i) => (
-          <div key={i} className="flex-1 min-w-[140px] p-3">
+          <div key={i} className="min-w-0 p-2 sm:p-3 border-r border-b border-line md:border-b-0">
             <Skeleton variant="rect" height="120px" className="rounded-xl mb-3" />
             <Skeleton count={2} />
           </div>
@@ -44,19 +44,19 @@ export default function PopularProducts({ excludeId, limit = 4 }) {
   if (products.length === 0) return null;
 
   return (
-    <div className="border border-line rounded-2xl overflow-x-auto bg-white">
-      <div className="flex divide-x divide-line min-w-max sm:min-w-0">
+    <div className="border border-line rounded-2xl overflow-hidden bg-white">
+      <div className="grid grid-cols-2 md:grid-cols-4">
         {products.map((p) => (
           <Link
             key={p.id}
             to={`/products/${p.id}`}
-            className="flex-1 min-w-[150px] p-3 hover:bg-accent-50/60 transition-colors"
+            className="min-w-0 p-2 sm:p-3 border-r border-b border-line md:border-b-0 hover:bg-accent-50/60 transition-colors"
           >
             <img
               src={p.image_url}
               alt={p.name}
               loading="lazy"
-              className="rounded-xl w-full aspect-square object-cover mb-3"
+              className="rounded-xl w-full aspect-[4/3] sm:aspect-square object-cover mb-3"
             />
             <p className="text-sm font-medium text-ink truncate">{p.name}</p>
             <p className="text-accent-600 text-sm font-medium">{formatPrice(p.price_cents, p.currency)}</p>

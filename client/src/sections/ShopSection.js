@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SearchX, X } from 'lucide-react';
 import { publicApi } from '../api/client';
@@ -11,6 +11,7 @@ import ErrorState from '../components/ui/ErrorState';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Best match' },
   { value: 'newest', label: 'Newest' },
   { value: 'price_asc', label: 'Price: Low to High' },
   { value: 'price_desc', label: 'Price: High to Low' },
@@ -19,16 +20,17 @@ const SORT_OPTIONS = [
 
 export default function ShopSection() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const query = (searchParams.get('q') || '').trim();
   const category = searchParams.get('category') || '';
   const minPrice = searchParams.get('min_price') || '';
   const maxPrice = searchParams.get('max_price') || '';
-  const sort = searchParams.get('sort') || 'newest';
+  const sort = searchParams.get('sort') || (query ? 'relevance' : 'newest');
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [categories, setCategories] = useState([]);
+  const requestId = useRef(0);
 
   // Local text-input state for price, so typing doesn't refetch on every
   // keystroke — only commits to the URL (and triggers a fetch) on blur/Enter.
@@ -43,7 +45,8 @@ export default function ShopSection() {
     publicApi.get('/api/products/categories').then((res) => setCategories(res.data)).catch(() => setCategories([]));
   }, []);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal) => {
+    const currentRequest = ++requestId.current;
     setLoading(true);
     setError(false);
     const params = new URLSearchParams();
@@ -51,18 +54,26 @@ export default function ShopSection() {
     if (category) params.set('category', category);
     if (minPrice) params.set('min_price', minPrice);
     if (maxPrice) params.set('max_price', maxPrice);
-    if (sort && sort !== 'newest') params.set('sort', sort);
+    if (sort && sort !== 'newest' && sort !== 'relevance') params.set('sort', sort);
     const qs = params.toString();
 
     publicApi
-      .get(`/api/products${qs ? `?${qs}` : ''}`)
-      .then((res) => setProducts(res.data))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .get(`/api/products${qs ? `?${qs}` : ''}`, { signal })
+      .then((res) => {
+        if (currentRequest === requestId.current) setProducts(res.data);
+      })
+      .catch((err) => {
+        if (currentRequest === requestId.current && err.code !== 'ERR_CANCELED') setError(true);
+      })
+      .finally(() => {
+        if (currentRequest === requestId.current && !signal?.aborted) setLoading(false);
+      });
   }, [query, category, minPrice, maxPrice, sort]);
 
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
   }, [load]);
 
   // Updates the URL's search params while preserving whatever else is
@@ -81,7 +92,14 @@ export default function ShopSection() {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = category || minPrice || maxPrice || (sort && sort !== 'newest');
+  const clearSearch = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    if (next.get('sort') === 'relevance') next.delete('sort');
+    setSearchParams(next, { replace: true });
+  };
+
+  const hasActiveFilters = category || minPrice || maxPrice || (sort !== (query ? 'relevance' : 'newest'));
 
   return (
     <section id="shop" className="scroll-mt-28 max-w-6xl mx-auto px-4 md:px-8 pt-24">
@@ -89,8 +107,9 @@ export default function ShopSection() {
         <p className="text-accent-500 text-sm font-medium mb-2">— Catalog</p>
         <h2 className="font-display font-bold text-4xl tracking-tight mb-2">Shop</h2>
         {query && (
-          <p className="text-ink/50 text-sm mb-8">
-            Showing results for "<span className="text-ink">{query}</span>"
+          <p className="text-ink/60 text-sm mb-8 flex flex-wrap items-center gap-2">
+            <span>{loading ? 'Searching' : `${products.length} ${products.length === 1 ? 'result' : 'results'}`} for "<strong className="text-ink font-medium">{query}</strong>"</span>
+            <button type="button" onClick={clearSearch} className="underline underline-offset-2 hover:text-ink">Clear search</button>
           </p>
         )}
         {!query && <div className="mb-12" />}
@@ -155,7 +174,7 @@ export default function ShopSection() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:ml-auto">
             <input
               type="number"
               min="0"
@@ -165,6 +184,7 @@ export default function ShopSection() {
               onChange={(e) => setMinPriceInput(e.target.value)}
               onBlur={() => updateFilter('min_price', minPriceInput)}
               onKeyDown={(e) => e.key === 'Enter' && updateFilter('min_price', minPriceInput)}
+              aria-label="Minimum price in dollars"
               className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
             />
             <span className="text-ink/30">–</span>
@@ -177,15 +197,17 @@ export default function ShopSection() {
               onChange={(e) => setMaxPriceInput(e.target.value)}
               onBlur={() => updateFilter('max_price', maxPriceInput)}
               onKeyDown={(e) => e.key === 'Enter' && updateFilter('max_price', maxPriceInput)}
+              aria-label="Maximum price in dollars"
               className="w-20 border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
             />
 
             <select
               value={sort}
-              onChange={(e) => updateFilter('sort', e.target.value === 'newest' ? '' : e.target.value)}
-              className="border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
+              onChange={(e) => updateFilter('sort', e.target.value === (query ? 'relevance' : 'newest') ? '' : e.target.value)}
+              aria-label="Sort products"
+              className="max-w-full border border-line rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-accent-500"
             >
-              {SORT_OPTIONS.map((opt) => (
+              {SORT_OPTIONS.filter((opt) => query || opt.value !== 'relevance').map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -217,7 +239,7 @@ export default function ShopSection() {
         {!loading && error && (
           <ErrorState
             description="Could not load products. Check your connection and try again."
-            onRetry={load}
+            onRetry={() => load()}
           />
         )}
 
