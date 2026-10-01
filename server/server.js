@@ -84,7 +84,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-startLowStockJob();
+if (require.main === module) startLowStockJob();
 
 const PORT = process.env.PORT || 4000;
 if (require.main === module) {

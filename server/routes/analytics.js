@@ -12,7 +12,7 @@ router.use(checkJwt, requireRole('admin'));
 router.get('/sales', async (req, res, next) => {
   const days = Math.min(parseInt(req.query.days, 10) || 30, 365);
   try {
-    const { rows } = await db.query(
+    const { rows } = await db.withServiceContext((client) => client.query(
       `SELECT
          date_trunc('day', created_at) AS day,
          COUNT(*) AS order_count,
@@ -22,7 +22,7 @@ router.get('/sales', async (req, res, next) => {
        GROUP BY day
        ORDER BY day ASC`,
       [days]
-    );
+    ));
     res.json(rows);
   } catch (err) {
     next(err);
@@ -33,12 +33,12 @@ router.get('/sales', async (req, res, next) => {
 // Paid orders vs. total orders started (a simple proxy for conversion rate).
 router.get('/conversion', async (req, res, next) => {
   try {
-    const { rows } = await db.query(
+    const { rows } = await db.withServiceContext((client) => client.query(
       `SELECT
          COUNT(*) FILTER (WHERE status = 'paid') AS paid_count,
          COUNT(*) AS total_count
        FROM orders`
-    );
+    ));
     const { paid_count, total_count } = rows[0];
     const rate = total_count > 0 ? Number(paid_count) / Number(total_count) : 0;
     res.json({ paid_count: Number(paid_count), total_count: Number(total_count), conversion_rate: rate });
@@ -52,13 +52,13 @@ router.get('/conversion', async (req, res, next) => {
 // carts untouched for 24h+ that were never checked out.
 router.get('/abandoned-carts', async (req, res, next) => {
   try {
-    const { rows } = await db.query(
+    const { rows } = await db.withServiceContext((client) => client.query(
       `SELECT auth0_user_id, items, updated_at
        FROM carts
        WHERE checked_out = false AND updated_at < now() - interval '24 hours'
        ORDER BY updated_at DESC
        LIMIT 100`
-    );
+    ));
     res.json(rows);
   } catch (err) {
     next(err);

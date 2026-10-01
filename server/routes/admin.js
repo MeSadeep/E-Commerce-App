@@ -1,3 +1,4 @@
+const {isImageUrl} = require('../utils/imageUrl');
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { parse } = require('csv-parse/sync');
@@ -34,7 +35,7 @@ router.post(
     body('category').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('price_cents').isInt({ min: 0 }),
     body('currency').optional().isString().isLength({ min: 3, max: 3 }),
-    body('image_url').optional().isURL(),
+    body('image_url').optional({ values: 'null' }).custom(isImageUrl),
     body('stock').isInt({ min: 0 }),
   ],
   async (req, res, next) => {
@@ -67,7 +68,7 @@ router.patch(
     body('category').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('price_cents').optional().isInt({ min: 0 }),
     body('stock').optional().isInt({ min: 0 }),
-    body('image_url').optional().isURL(),
+    body('image_url').optional({ values: 'null' }).custom(isImageUrl),
   ],
   async (req, res, next) => {
     const errors = validationResult(req);
@@ -203,7 +204,7 @@ router.post(
     body('color').optional({ values: 'falsy' }).isString().trim().isLength({ max: 50 }),
     body('material').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('image_urls').optional().isArray({ max: 4 }).withMessage('Up to 4 images allowed'),
-    body('image_urls.*').optional({ values: 'falsy' }).isURL(),
+    body('image_urls.*').optional({ values: 'falsy' }).custom(isImageUrl),
     body('price_cents').isInt({ min: 0 }),
     body('stock').isInt({ min: 0 }),
   ],
@@ -244,7 +245,7 @@ router.patch(
     body('color').optional({ values: 'falsy' }).isString().trim().isLength({ max: 50 }),
     body('material').optional({ values: 'falsy' }).isString().trim().isLength({ max: 100 }),
     body('image_urls').optional().isArray({ max: 4 }).withMessage('Up to 4 images allowed'),
-    body('image_urls.*').optional({ values: 'falsy' }).isURL(),
+    body('image_urls.*').optional({ values: 'falsy' }).custom(isImageUrl),
     body('price_cents').optional().isInt({ min: 0 }),
     body('stock').optional().isInt({ min: 0 }),
   ],

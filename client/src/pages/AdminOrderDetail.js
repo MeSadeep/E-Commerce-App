@@ -37,10 +37,7 @@ export default function AdminOrderDetail() {
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCancel = async () => {
-    const isPaid = order.status === 'paid' || order.status === 'fulfilled';
-    const confirmMsg = isPaid
-      ? 'This will issue a real refund through Stripe for the full amount and restock the items. Continue?'
-      : 'Cancel this order? It was never charged, so nothing needs to be refunded.';
+    const confirmMsg = 'Cancel this pending order and expire its Stripe Checkout link?';
     if (!window.confirm(confirmMsg)) return;
 
     setCancelling(true);
@@ -72,7 +69,7 @@ export default function AdminOrderDetail() {
     );
   }
 
-  const canCancel = order.status !== 'cancelled' && order.status !== 'refunded';
+  const canCancel = order.status === 'pending';
 
   return (
     <div>
@@ -153,7 +150,7 @@ export default function AdminOrderDetail() {
 
       {canCancel && (
         <Button variant="danger" onClick={handleCancel} loading={cancelling}>
-          {order.status === 'paid' || order.status === 'fulfilled' ? 'Cancel & Refund Order' : 'Cancel Order'}
+          Cancel pending order
         </Button>
       )}
     </div>

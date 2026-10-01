@@ -1,10 +1,12 @@
+import { useSearchParams } from 'react-router-dom';
+import { assertDashboard } from '../contracts/dashboard';
 import React, { useEffect, useState } from 'react';
-import { LineChart, Line, BarChart, Bar, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useApi } from '../api/client';
 import RadialGauge from '../components/RadialGauge';
 
-const fmt = (cents) => `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
 
 function ChangeBadge({ pct }) {
   const positive = pct >= 0;
@@ -18,14 +20,22 @@ function ChangeBadge({ pct }) {
 
 export default function AdminDashboard() {
   const { authedRequest } = useApi();
+  const [params] = useSearchParams();
+  const days = params.get('days') || '30';
+  const currency = params.get('currency') || 'usd';
+  const fmt = cents => new Intl.NumberFormat('en-US',{style:'currency',currency: ['usd','eur','gbp','lkr'].includes(currency)?currency:'usd'}).format(cents/100);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    authedRequest({ method: 'get', url: '/api/admin/dashboard' })
-      .then((res) => setData(res.data))
-      .catch(() => setError('Could not load dashboard data.'));
-  }, [authedRequest]);
+    let active = true;
+    const controller = new AbortController();
+    setData(null); setError(null);
+    authedRequest({method:'get',url:'/api/admin/dashboard',params:{days,currency},signal:controller.signal,timeout:15000})
+      .then(res => {if (active) setData(assertDashboard(res.data));})
+      .catch(err => {if (active) setError(err.response?.data?.error || 'Could not load dashboard data. Check the backend and selected filters.');});
+    return () => {active=false;controller.abort();};
+  }, [authedRequest, days, currency]);
 
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data) return <p className="text-ink/50">Loading dashboard…</p>;
@@ -38,7 +48,7 @@ export default function AdminDashboard() {
     <div>
       <div className="mb-6">
         <h1 className="font-display font-bold text-2xl tracking-tight">Dashboard</h1>
-        <p className="text-ink/50 text-sm mt-1">Track your sales and performance at a glance</p>
+        <p className="text-ink/50 text-sm mt-1">Last {days} days · {currency.toUpperCase()} · compared with the preceding {days} days</p>
       </div>
 
       {/* Top row: Product overview, Active sales, Product revenue */}
@@ -46,7 +56,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl border border-line p-5">
           <p className="text-sm text-ink/50 mb-2">Product overview</p>
           <div className="text-2xl font-display font-bold">{fmt(data.overview.totalSalesCents)}</div>
-          <p className="text-xs text-ink/40 mt-1">Total sales · {data.overview.newSalesCount} new (30d)</p>
+          <p className="text-xs text-ink/40 mt-1">Period sales · {data.overview.newSalesCount} paid orders</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-line p-5">
@@ -79,11 +89,12 @@ export default function AdminDashboard() {
       {/* Second row: Analytics chart + Sales performance gauge */}
       <div className="grid md:grid-cols-3 gap-5 mb-5">
         <div className="md:col-span-2 bg-white rounded-2xl border border-line p-5">
-          <p className="text-sm text-ink/50 mb-4">Analytics — last 30 days</p>
+          <p className="text-sm text-ink/50 mb-4">Analytics — last {days} days</p>
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer>
               <LineChart data={trendData}>
-                <Line type="monotone" dataKey="revenue" stroke="#22D3EE" strokeWidth={2} dot={false} />
+                <XAxis dataKey="day" /><YAxis /><Tooltip formatter={value => fmt(value * 100)} />
+                <Line type="monotone" dataKey="revenue" stroke="#22D3EE" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

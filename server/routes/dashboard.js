@@ -1,10 +1,11 @@
+const { assertDashboard } = require('../contracts/dashboard.cjs');
 const express = require('express');
 const Stripe = require('stripe');
 const db = require('../config/db');
 const checkJwt = require('../middleware/checkJwt');
 const { requireRole } = require('../middleware/requireRole');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {timeout:10000,maxNetworkRetries:1});
 const router = express.Router();
 
 router.use(checkJwt, requireRole('admin'));
@@ -48,103 +49,46 @@ async function lookupCustomerProfile(auth0UserId) {
 // that component must be changed together, or you get the
 // "Cannot read properties of undefined (reading 'map')" crash this fixes.
 router.get('/dashboard', async (req, res, next) => {
-  try {
-    const [
-      overviewResult,
-      activeSalesResult,
-      last7DaysResult,
-      revenueResult,
-      salesTrendResult,
-      topProductsResult,
-      conversionResult,
-    ] = await Promise.all([
-      db.query(
-        `SELECT
-           COALESCE(SUM(total_cents) FILTER (WHERE status = 'paid'), 0) AS total_sales_cents,
-           COUNT(*) FILTER (WHERE status = 'paid' AND created_at >= now() - interval '30 days') AS new_sales_count
-         FROM orders`
-      ),
-      db.query(
-        `SELECT
-           COALESCE(SUM(total_cents) FILTER (WHERE created_at >= now() - interval '30 days'), 0) AS current_cents,
-           COALESCE(SUM(total_cents) FILTER (WHERE created_at >= now() - interval '60 days' AND created_at < now() - interval '30 days'), 0) AS previous_cents
-         FROM orders WHERE status = 'paid'`
-      ),
-      db.query(
-        `SELECT date_trunc('day', created_at) AS day, SUM(total_cents) AS revenue_cents
-         FROM orders WHERE status = 'paid' AND created_at >= now() - interval '7 days'
-         GROUP BY day ORDER BY day ASC`
-      ),
-      db.query(
-        `SELECT
-           COALESCE(SUM(total_cents) FILTER (WHERE created_at >= date_trunc('month', now())), 0) AS current_cents,
-           COALESCE(SUM(total_cents) FILTER (
-             WHERE created_at >= date_trunc('month', now()) - interval '1 month'
-               AND created_at < date_trunc('month', now())
-           ), 0) AS previous_cents
-         FROM orders WHERE status = 'paid'`
-      ),
-      db.query(
-        `SELECT date_trunc('day', created_at) AS day, SUM(total_cents) AS revenue_cents
-         FROM orders WHERE status = 'paid' AND created_at >= now() - interval '30 days'
-         GROUP BY day ORDER BY day ASC`
-      ),
-      db.query(
-        `SELECT p.id, p.name, p.stock, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price_cents) AS revenue_cents
-         FROM order_items oi
-         JOIN orders o ON o.id = oi.order_id AND o.status = 'paid'
-         JOIN products p ON p.id = oi.product_id
-         GROUP BY p.id, p.name, p.stock ORDER BY revenue_cents DESC LIMIT 5`
-      ),
-      db.query(`SELECT COUNT(*) FILTER (WHERE status = 'paid') AS paid_count, COUNT(*) AS total_count FROM orders`),
-    ]);
-
-    // % change helper — if there's nothing to compare against (previous
-    // period was $0), treat any current revenue as a flat +100% rather than
-    // dividing by zero into Infinity/NaN.
-    const changePct = (current, previous) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return Math.round(((current - previous) / previous) * 1000) / 10;
-    };
-
-    const activeSalesCurrent = Number(activeSalesResult.rows[0].current_cents);
-    const activeSalesPrevious = Number(activeSalesResult.rows[0].previous_cents);
-    const revenueCurrent = Number(revenueResult.rows[0].current_cents);
-    const revenuePrevious = Number(revenueResult.rows[0].previous_cents);
-    const { paid_count, total_count } = conversionResult.rows[0];
-
-    res.json({
-      overview: {
-        totalSalesCents: Number(overviewResult.rows[0].total_sales_cents),
-        newSalesCount: Number(overviewResult.rows[0].new_sales_count),
-      },
-      activeSales: {
-        valueCents: activeSalesCurrent,
-        changePct: changePct(activeSalesCurrent, activeSalesPrevious),
-        last7Days: last7DaysResult.rows.map((r) => ({ day: r.day, revenueCents: Number(r.revenue_cents) })),
-      },
-      productRevenue: {
-        valueCents: revenueCurrent,
-        changePct: changePct(revenueCurrent, revenuePrevious),
-      },
-      salesTrend: salesTrendResult.rows.map((r) => ({ day: r.day, revenueCents: Number(r.revenue_cents) })),
-      salesPerformance: {
-        conversionRate: Number(total_count) > 0 ? Number(paid_count) / Number(total_count) : 0,
-        paidCount: Number(paid_count),
-        totalCount: Number(total_count),
-      },
-      topProducts: topProductsResult.rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        unitsSold: Number(r.units_sold),
-        revenueCents: Number(r.revenue_cents),
-        stock: r.stock,
-        status: r.stock > 0 ? 'In Stock' : 'Out of Stock',
-      })),
-    });
-  } catch (err) {
-    next(err);
+  const days = req.query.days === undefined ? 30 : Number(req.query.days);
+  const currency = req.query.currency || 'usd';
+  if (![7, 30, 90, 365].includes(days) || !['usd','eur','gbp','lkr'].includes(currency)) {
+    return res.status(400).json({error: 'Choose a supported period and currency'});
   }
+  try {
+    const payload = await db.withServiceContext(async client => {
+      const {rows: [summary]} = await client.query(`
+        SELECT
+          COALESCE(SUM(total_cents) FILTER (WHERE status = 'paid' AND created_at >= now() - $1 * interval '1 day'),0) AS current,
+          COALESCE(SUM(total_cents) FILTER (WHERE status = 'paid' AND created_at < now() - $1 * interval '1 day'),0) AS previous,
+          COUNT(*) FILTER (WHERE status = 'paid' AND created_at >= now() - $1 * interval '1 day') AS paid,
+          COUNT(*) FILTER (WHERE created_at >= now() - $1 * interval '1 day') AS total
+        FROM orders WHERE currency = $2 AND created_at >= now() - (2 * $1) * interval '1 day' AND created_at <= now()`, [days, currency]);
+      const {rows: trend} = await client.query(`
+        SELECT date_trunc('day',created_at) AS day, SUM(total_cents) AS revenue_cents
+        FROM orders WHERE status = 'paid' AND currency = $2
+        AND created_at >= now() - $1 * interval '1 day' AND created_at <= now()
+        GROUP BY day ORDER BY day`, [days, currency]);
+      const {rows: products} = await client.query(`
+        SELECT p.id,p.name,p.stock,SUM(oi.quantity) AS units_sold,SUM(oi.quantity * oi.unit_price_cents) AS revenue_cents
+        FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id
+        WHERE o.status = 'paid' AND o.currency = $2 AND o.created_at >= now() - $1 * interval '1 day' AND o.created_at <= now()
+        GROUP BY p.id,p.name,p.stock ORDER BY revenue_cents DESC LIMIT 5`, [days, currency]);
+      const current = Number(summary.current), previous = Number(summary.previous);
+      const change = previous ? Math.round((current-previous)/previous*1000)/10 : (current ? 100 : 0);
+      const series = trend.map(r => ({day:r.day, revenueCents:Number(r.revenue_cents)}));
+      return {
+        filters: {days,currency},
+        overview: {totalSalesCents:current,newSalesCount:Number(summary.paid)},
+        activeSales: {valueCents:current,changePct:change,last7Days:series},
+        productRevenue: {valueCents:current,changePct:change},
+        salesTrend:series,
+        salesPerformance: {conversionRate:Number(summary.total) ? Number(summary.paid)/Number(summary.total) : 0,paidCount:Number(summary.paid),totalCount:Number(summary.total)},
+        topProducts:products.map(r => ({id:r.id,name:r.name,stock:r.stock,unitsSold:Number(r.units_sold),revenueCents:Number(r.revenue_cents),status:r.stock>0?'In Stock':'Out of Stock'}))
+      };
+    });
+    assertDashboard(JSON.parse(JSON.stringify(payload)));
+    res.json(payload);
+  } catch (err) {next(err);}
 });
 
 // GET /api/admin/orders?limit=50 - all orders across all users. Runs under
@@ -187,12 +131,12 @@ router.get('/orders/:id', async (req, res, next) => {
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    const itemsResult = await db.query(
+    const itemsResult = await db.withServiceContext(client => client.query(
       `SELECT oi.quantity, oi.unit_price_cents, p.id AS product_id, p.name, p.image_url
        FROM order_items oi JOIN products p ON p.id = oi.product_id
        WHERE oi.order_id = $1 ORDER BY oi.id ASC`,
       [id]
-    );
+    ));
 
     const customer = await lookupCustomerProfile(order.auth0_user_id);
 
@@ -224,51 +168,36 @@ router.get('/orders/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/admin/orders/:id/cancel
-// Pending order (never actually charged) -> just marked cancelled, nothing
-// to refund. Paid/fulfilled order -> issues a REAL Stripe refund for the
-// full amount before marking it cancelled, and restores the stock that was
-// decremented when the order was originally paid (mirroring the decrement
-// logic in routes/webhook.js).
+// Admin-only pending cancellation. Lock serializes webhook/cancel transitions.
 router.post('/orders/:id/cancel', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({error:'Invalid order id'});
   try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid order id' });
-
-    const order = await db.withServiceContext(async (client) => {
-      const { rows } = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
-      return rows[0] || null;
-    });
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (order.status === 'cancelled') return res.status(400).json({ error: 'Order is already cancelled' });
-
-    let refunded = false;
-    if (order.status === 'paid' || order.status === 'fulfilled') {
-      const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
-      if (session.payment_intent) {
-        await stripe.refunds.create({ payment_intent: session.payment_intent });
-        refunded = true;
+    const result = await db.withServiceContext(async client => {
+      const {rows:[order]} = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE',[id]);
+      if (!order) return {status:404,error:'Order not found'};
+      if (order.status === 'cancelled') return {status:200,cancelled:true,refunded:false};
+      if (order.status !== 'pending') return {status:409,error:'Only pending orders can be cancelled. Paid orders require the refund workflow.'};
+      let session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
+      if (session.status === 'open' && session.payment_status === 'unpaid') {
+        try {
+          session = await stripe.checkout.sessions.expire(session.id, {}, {idempotencyKey:`cancel-pending-${session.id}`});
+        } catch (err) {
+          // Payment or another expiry may have won the race. Re-read Stripe.
+          session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
+          if (session.status !== 'expired') throw Object.assign(new Error('Checkout changed or could not be expired. Refresh and retry.'),{status:409});
+        }
       }
-    }
-
-    await db.withServiceContext(async (client) => {
-      await client.query(
-        `UPDATE orders SET status = $1 WHERE id = $2`,
-        [refunded ? 'refunded' : 'cancelled', id]
-      );
-      if (refunded) {
-        await client.query(
-          `UPDATE products p SET stock = p.stock + oi.quantity
-           FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
-          [id]
-        );
+      if (session.status !== 'expired' || session.payment_status !== 'unpaid') {
+        return {status:409,error:'Checkout is completed or payment is processing. It cannot be cancelled as pending.'};
       }
+      await client.query("UPDATE orders SET status = 'cancelled' WHERE id = $1 AND status = 'pending'",[id]);
+      // Pending orders never deducted stock. Do not restock or refund.
+      return {status:200,cancelled:true,refunded:false};
     });
-
-    res.json({ cancelled: true, refunded });
-  } catch (err) {
-    next(err);
-  }
+    const {status,...body}=result;
+    res.status(status).json(body);
+  } catch(err) {next(err);}
 });
 
 // GET /api/admin/customers - derived entirely from orders (Auth0 owns

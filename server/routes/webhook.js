@@ -29,48 +29,25 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'checkout.session.completed') {
+  if (['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) {
     const session = event.data.object;
+    if (!['paid','no_payment_required'].includes(session.payment_status)) return res.json({received:true});
     try {
-      await db.withServiceContext(async (client) => {
-        // WHERE ... AND status != 'paid' is the actual idempotency guard:
-        // Stripe explicitly documents that it can redeliver the same webhook
-        // event more than once. Without this condition, a redelivered event
-        // for an order already marked 'paid' would match again and the stock
-        // decrement below would run a second time for the same purchase.
-        // With it, a redelivery finds zero rows and the block below is
-        // skipped entirely.
-        const orderResult = await client.query(
-          `UPDATE orders SET status = 'paid'
-           WHERE stripe_session_id = $1 AND status != 'paid'
-           RETURNING id`,
-          [session.id]
-        );
-
-        if (orderResult.rows.length === 0) return; // already processed, or session_id not found
-        const orderId = orderResult.rows[0].id;
-
-        // Decrement stock for exactly what was purchased. This was a real
-        // gap: checkout only ever *checked* stock at session-creation time
-        // but never *decremented* it on confirmed payment, so the site
-        // could oversell an item that's actually sold out. GREATEST(...,0)
-        // stops stock from going negative if stock was separately adjusted
-        // in the admin panel in the meantime.
-        await client.query(
-          `UPDATE products p
-           SET stock = GREATEST(p.stock - oi.quantity, 0)
-           FROM order_items oi
-           WHERE oi.order_id = $1 AND oi.product_id = p.id`,
-          [orderId]
-        );
+      await db.withServiceContext(async client => {
+        const {rows:[order]} = await client.query('SELECT * FROM orders WHERE stripe_session_id = $1 FOR UPDATE',[session.id]);
+        // Another app can share this Stripe account; never update unmatched orders.
+        if (!order) {console.warn('Webhook session has no local order:',session.id);return;}
+        if (order.status !== 'pending') return;
+        if (session.amount_total !== order.total_cents || session.currency !== order.currency) throw new Error('Payment amount/currency mismatch');
+        await client.query("UPDATE orders SET status = 'paid' WHERE id = $1 AND status = 'pending'",[order.id]);
+        await client.query(`UPDATE products p SET stock = GREATEST(p.stock - oi.quantity,0)
+          FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,[order.id]);
       });
-    } catch (err) {
-      console.error('Failed to update order after payment:', err);
-      // Still return 200 so Stripe doesn't endlessly retry; log for manual follow-up.
+    } catch(err) {
+      console.error('Failed to update order after payment:',err);
+      return res.status(500).json({error:'Payment processing failed; retry required'});
     }
   }
-
-  res.json({ received: true });
+  res.json({received:true});
 });
-
 module.exports = router;

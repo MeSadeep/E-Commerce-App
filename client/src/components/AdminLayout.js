@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, MessageSquare, Mail,
@@ -37,6 +37,15 @@ export default function AdminLayout() {
   const { user, logout } = useAuth0();
   const { clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isDashboard = location.pathname.replace(/\/$/, '') === '/admin';
+  const updateFilter = (key, value) => {
+    const next = new URLSearchParams(params);
+    next.set(key, value);
+    setParams(next);
+  };
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -160,16 +169,28 @@ export default function AdminLayout() {
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-line text-sm focus:outline-none focus:border-accent-500"
             />
           </form>
-          <button
-            type="button"
+          {isDashboard && <button
+            type="button" onClick={() => setFiltersOpen(v => !v)}
             className="flex shrink-0 items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border border-line text-sm text-ink/60 hover:bg-accent-50"
-            aria-label="Filters"
-          >
-            <SlidersHorizontal size={16} />
-            <span className="hidden sm:inline">Filters</span>
-          </button>
+            aria-expanded={filtersOpen} aria-controls="dashboard-filters"
+          ><SlidersHorizontal size={16} /><span>Filters</span></button>}
         </header>
 
+        {isDashboard && filtersOpen && (
+          <section id="dashboard-filters" aria-label="Dashboard filters" className="bg-white border-b border-line px-4 sm:px-6 py-4 flex flex-wrap items-end gap-4">
+            <label className="text-sm">Period
+              <select className="block mt-1 border border-line rounded-lg p-2" value={params.get('days') || '30'} onChange={e => updateFilter('days',e.target.value)}>
+                {[7,30,90,365].map(n => <option key={n} value={n}>Last {n} days</option>)}
+              </select>
+            </label>
+            <label className="text-sm">Currency
+              <select className="block mt-1 border border-line rounded-lg p-2" value={params.get('currency') || 'usd'} onChange={e => updateFilter('currency',e.target.value)}>
+                {['usd','eur','gbp','lkr'].map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+              </select>
+            </label>
+            <button type="button" className="border border-line rounded-lg px-3 py-2 text-sm" onClick={() => {const next=new URLSearchParams(params);next.delete('days');next.delete('currency');setParams(next);}}>Reset filters</button>
+          </section>
+        )}
         <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8">
           <Outlet />
         </main>
