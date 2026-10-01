@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const CartContext = createContext(null);
@@ -74,7 +74,7 @@ export function CartProvider({ children }) {
     updateCart((prev) => prev.map((i) => (i.productId === productId ? { ...i, quantity } : i)));
   };
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     if (isLoading || cart.key !== storageKey) return;
     // Logout can switch identities before React's persistence effect runs.
     // Remove the current user's saved cart synchronously first.
@@ -84,13 +84,13 @@ export function CartProvider({ children }) {
       // The in-memory cart is still cleared.
     }
     setCart({ key: storageKey, items: [] });
-  };
+  }, [isLoading, cart.key, storageKey]);
 
   const totalCents = items.reduce((sum, i) => sum + i.price_cents * i.quantity, 0);
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalCents }}
+      value={{ cartReady: !isLoading && cart.key === storageKey, cartIdentity: storageKey, items, addItem, removeItem, updateQuantity, clearCart, totalCents }}
     >
       {children}
     </CartContext.Provider>

@@ -1,12 +1,13 @@
 const express = require('express');
 const Stripe = require('stripe');
-const db = require('../config/db');
+const completePayment = require('../services/completePayment');
+const { invalidateProductsCache } = require('./products');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const router = express.Router();
 
 // POST /webhook
-// This is the ONLY source of truth for "did the payment actually succeed".
+// Payment is verified by signed webhooks or the server-side recovery script.
 // Stripe signs every webhook request, and we verify that signature below —
 // this stops anyone from faking a "payment succeeded" call to our server.
 //
@@ -33,16 +34,9 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
     const session = event.data.object;
     if (!['paid','no_payment_required'].includes(session.payment_status)) return res.json({received:true});
     try {
-      await db.withServiceContext(async client => {
-        const {rows:[order]} = await client.query('SELECT * FROM orders WHERE stripe_session_id = $1 FOR UPDATE',[session.id]);
-        // Another app can share this Stripe account; never update unmatched orders.
-        if (!order) {console.warn('Webhook session has no local order:',session.id);return;}
-        if (order.status !== 'pending') return;
-        if (session.amount_total !== order.total_cents || session.currency !== order.currency) throw new Error('Payment amount/currency mismatch');
-        await client.query("UPDATE orders SET status = 'paid' WHERE id = $1 AND status = 'pending'",[order.id]);
-        await client.query(`UPDATE products p SET stock = GREATEST(p.stock - oi.quantity,0)
-          FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,[order.id]);
-      });
+      await completePayment(session);
+      // Only invalidate after COMMIT; retries also clear any stale cached list.
+      await invalidateProductsCache();
     } catch(err) {
       console.error('Failed to update order after payment:',err);
       return res.status(500).json({error:'Payment processing failed; retry required'});

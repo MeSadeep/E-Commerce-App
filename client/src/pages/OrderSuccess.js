@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useApi } from '../api/client';
@@ -9,7 +9,8 @@ function formatPrice(cents, currency) {
 }
 
 export default function OrderSuccess() {
-  const { clearCart } = useCart();
+  const { clearCart, cartReady, cartIdentity } = useCart();
+  const clearedSession = useRef(null);
   const { authedRequest } = useApi();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -17,26 +18,41 @@ export default function OrderSuccess() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Safe to clear the local cart here — the real payment confirmation
-    // already happened server-side via the Stripe webhook, not because
-    // the user landed on this page (a URL can be visited without paying).
-    clearCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!sessionId || !cartReady) return;
+    let active = true;
+    let timer;
+    let attempts = 0;
+    const controller = new AbortController();
+    setOrder(null); setError(false);
+    const poll = async () => {
+      try {
+        const res = await authedRequest({method:'get',url:`/api/orders/by-session/${encodeURIComponent(sessionId)}`,signal:controller.signal,timeout:15000});
+        if (!active) return;
+        setOrder({...res.data, cartOwner: cartIdentity}); setError(false);
+        if (res.data.status === 'pending' && ++attempts < 30) timer = setTimeout(poll,2000);
+      } catch {
+        if (active) setError(true);
+      }
+    };
+    poll();
+    return () => {active=false;clearTimeout(timer);controller.abort();};
+  }, [sessionId, cartReady, cartIdentity, authedRequest]);
 
   useEffect(() => {
-    if (!sessionId) return;
-    authedRequest({ method: 'get', url: `/api/orders/by-session/${sessionId}` })
-      .then((res) => setOrder(res.data))
-      .catch(() => setError(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+    if (!cartReady || !sessionId || !order || order.cartOwner !== cartIdentity || !['paid','fulfilled'].includes(order.status)) return;
+    const key = `checkout-cleared:${cartIdentity}:${sessionId}`;
+    if (clearedSession.current === key) return;
+    try {if (localStorage.getItem(key)) return;} catch {}
+    clearCart();
+    clearedSession.current = key;
+    try {localStorage.setItem(key,'1');} catch {}
+  }, [order, sessionId, cartReady, cartIdentity, clearCart]);
 
   return (
     <main className="max-w-2xl mx-auto px-4 md:px-8 py-24">
       <div className="text-center mb-10">
-        <h1 className="font-display font-bold text-3xl tracking-tight mb-3">Payment received</h1>
-        <p className="text-ink/60">Thanks for your order! You'll get a confirmation once it's processed.</p>
+        <h1 className="font-display font-bold text-3xl tracking-tight mb-3">{order && ['paid','fulfilled'].includes(order.status) ? 'Payment received' : 'Order status'}</h1>
+        <p className="text-ink/60">{order && ['paid','fulfilled'].includes(order.status) ? 'Thanks for your order! Your payment is confirmed.' : 'Waiting for payment confirmation. Your cart is kept until payment is confirmed.'}</p>
       </div>
 
       {!sessionId && (

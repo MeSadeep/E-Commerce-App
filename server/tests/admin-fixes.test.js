@@ -1,3 +1,4 @@
+jest.mock('../routes/products',()=>({invalidateProductsCache:jest.fn().mockResolvedValue()}));
 const express=require('express');
 const request=require('supertest');
 jest.mock('../middleware/checkJwt',()=> (req,res,next)=> {
@@ -42,7 +43,25 @@ test('bad webhook signature is rejected',async()=>{webhookStripe.webhooks.constr
 test('database failure returns 500 for Stripe retry',async()=>{webhookStripe.webhooks.constructEvent.mockReturnValue(event());query.mockRejectedValue(new Error('db unavailable'));expect((await postEvent()).status).toBe(500);});
 test('unpaid session never marks order paid',async()=>{webhookStripe.webhooks.constructEvent.mockReturnValue(event('unpaid'));expect((await postEvent()).status).toBe(200);expect(query).not.toHaveBeenCalled();});
 test.each(['paid','cancelled','refunded','fulfilled'])('duplicate webhook never changes %s order or stock',async status=>{webhookStripe.webhooks.constructEvent.mockReturnValue(event());query.mockResolvedValue({rows:[{id:4,status}]});expect((await postEvent()).status).toBe(200);expect(query).toHaveBeenCalledTimes(1);});
-test('verified paid session updates pending order and stock',async()=>{webhookStripe.webhooks.constructEvent.mockReturnValue(event());query.mockResolvedValueOnce({rows:[{id:4,status:'pending',total_cents:89900,currency:'usd'}]}).mockResolvedValue({rows:[]});expect((await postEvent()).status).toBe(200);expect(query).toHaveBeenCalledTimes(3);});
+test('verified paid session deducts stock before marking paid and clears cache',async()=>{
+ webhookStripe.webhooks.constructEvent.mockReturnValue(event());
+ query.mockResolvedValueOnce({rows:[{id:4,status:'pending',total_cents:89900,currency:'usd'}]})
+ .mockResolvedValueOnce({rows:[{product_id:2,quantity:3}]})
+ .mockResolvedValue({rows:[{id:2}],rowCount:1});
+ expect((await postEvent()).status).toBe(200);
+ expect(query.mock.calls[2][1]).toEqual([2,3]);
+ expect(query.mock.calls[2][0]).toContain('stock >= $2');
+ expect(query.mock.calls[3][0]).toContain("status = 'paid'");
+ expect(require('../routes/products').invalidateProductsCache).toHaveBeenCalled();
+});
+test.each([[[]],[[{product_id:2,quantity:3}]]])('missing items or blocked stock update returns retryable error',async items=>{
+ webhookStripe.webhooks.constructEvent.mockReturnValue(event());
+ query.mockResolvedValueOnce({rows:[{id:4,status:'pending',total_cents:89900,currency:'usd'}]})
+ .mockResolvedValueOnce({rows:items}).mockResolvedValue({rows:[],rowCount:0});
+ expect((await postEvent()).status).toBe(500);
+ expect(query.mock.calls.some(([sql])=>sql.includes("SET status = 'paid'"))).toBe(false);
+ expect(require('../routes/products').invalidateProductsCache).not.toHaveBeenCalled();
+});
 test('payment amount mismatch fails without writing',async()=>{webhookStripe.webhooks.constructEvent.mockReturnValue(event());query.mockResolvedValue({rows:[{id:4,status:'pending',total_cents:123,currency:'usd'}]});expect((await postEvent()).status).toBe(500);expect(query).toHaveBeenCalledTimes(1);});
 test('image URL accepts local images and rejects unsafe schemes and traversal',()=>{const {isImageUrl}=require('../utils/imageUrl');expect(isImageUrl('/images/products/sofa.jpg')).toBe(true);expect(isImageUrl('https://example.com/sofa.jpg')).toBe(true);expect(isImageUrl('javascript:alert(1)')).toBe(false);expect(isImageUrl('/images/products/../secret.jpg')).toBe(false);});
 test('already expired Stripe session allows safe retry after DB failure',async()=>{query.mockResolvedValueOnce({rows:[{id:4,status:'pending',stripe_session_id:'cs_test_4'}]}).mockResolvedValueOnce({rows:[]});stripe.checkout.sessions.retrieve.mockResolvedValue({status:'expired',payment_status:'unpaid'});expect((await cancel()).status).toBe(200);expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();});
