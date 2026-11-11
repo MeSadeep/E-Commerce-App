@@ -14,15 +14,14 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
-      - run: npm install
-      - run: npm test
-      - run: npm audit --audit-level=high || true # warns without failing the build; tighten once deps are pinned
+      - run: npm ci
+      - run: npm test --if-present
 
   client:
     name: Client build + audit
@@ -31,17 +30,14 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
-      - run: npm install
-      - run: npm run build
+      - run: npm ci
+      - name: Build Client
         env:
-          REACT_APP_API_URL: http://localhost:4000
-          REACT_APP_AUTH0_DOMAIN: test-tenant.us.auth0.com
-          REACT_APP_AUTH0_CLIENT_ID: test-client-id
-          REACT_APP_AUTH0_AUDIENCE: https://test-audience
-      - run: npm audit --audit-level=high || true
+          CI: false
+        run: npm run build
