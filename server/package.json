@@ -13,7 +13,7 @@
     "express-rate-limit": "^7.4.0",
     "express-validator": "^7.2.0",
     "express-oauth2-jwt-bearer": "^1.6.0",
-    "stripe": "^16.9.0",
+    "stripe": "^23.1.0",
     "morgan": "^1.10.0",
     "bcrypt": "^5.1.1",
     "@sentry/node": "^8.30.0",
